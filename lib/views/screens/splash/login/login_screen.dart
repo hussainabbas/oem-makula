@@ -17,12 +17,9 @@ import 'package:makula_oem/views/widgets/makula_edit_text.dart';
 import 'package:makula_oem/views/widgets/makula_text_view.dart';
 import 'package:provider/provider.dart';
 
-//final TextEditingController _emailController = TextEditingController();
-final TextEditingController _emailController =
-    TextEditingController(text: "priya.kinstler+777@nbt.ag");
-//final TextEditingController _passwordController = TextEditingController();
-final TextEditingController _passwordController =
-    TextEditingController(text: "DZzxRaqaJO");
+
+final TextEditingController _emailController = TextEditingController();
+final TextEditingController _passwordController = TextEditingController();
 final FocusNode _emailFieldFocus = FocusNode();
 final FocusNode _passwordFieldFocus = FocusNode();
 late BuildContext _context;

@@ -157,7 +157,8 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
                     groupValue: provider.selectionTicketTypeRadio,
                     onChanged: (value) {
                       provider.radioTicketTypeSelection(1);
-                      provider.setTicketType(ticketTypeServiceRequest);
+                      addTicketProvider.setTicketType(ticketTypeServiceRequest);
+                      console("RADIO BUTTON: ${addTicketProvider.ticketType}");
                     },
                   ),
                   const Text(ticketTypeServiceRequest2,
@@ -171,7 +172,8 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
                     groupValue: provider.selectionTicketTypeRadio,
                     onChanged: (value) {
                       provider.radioTicketTypeSelection(2);
-                      provider.setTicketType(ticketTypeSparePart);
+                      addTicketProvider.setTicketType(ticketTypeSparePart2);
+                      console("RADIO BUTTON: ${addTicketProvider.ticketType}");
                     },
                   ),
                   const Text(ticketTypeSparePart,
@@ -560,9 +562,11 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
       addTicketProvider.setIsTitleValidate(false);
     }
     console(" addTicketProvider.isTitleValidated => ${ addTicketProvider.isTitleValidated}");
+    console("_submitTicket ${addTicketProvider.ticketType}");
     if (addTicketProvider.facilityData != null &&
         addTicketProvider.selectedMachineData != null &&
         title.isNotEmpty) {
+
       context.showCustomDialog();
       var result = await AddTicketViewModel().addNewTicket(
         addTicketProvider.selectedMachineData?.sId.toString() ?? "",
@@ -572,9 +576,9 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
         addTicketProvider.reporterData?.sId.toString() ?? "",
         addTicketProvider.facilityData?.sId.toString() ?? "",
       );
-      Navigator.pop(context);
+      Navigator.of(context).pop();
       result.join(
-          (failed) => {console("failed => " + failed.exception.toString())},
+          (failed) => {console("failed => ${failed.exception}")},
           (loaded) => {
                 Navigator.pop(context),
                 context.showSuccessSnackBar("Ticket Created"),

@@ -87,3 +87,4 @@ const formatDateEEEMMMDDHHMMA = "EEE, MMM dd, yyyy, hh:mm a";
 const ticketTypeServiceRequest = "ServiceRequest";
 const ticketTypeServiceRequest2 = "Service Request";
 const ticketTypeSparePart = "Spare Part Order";
+const ticketTypeSparePart2= "SparePartOrder";
