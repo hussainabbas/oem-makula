@@ -13,119 +13,7 @@ const String currentUser = r'''
         role
         foldersAccessToken
         email
-        info
-        facility {
-            _id
-            name
-            oem {
-                _id
-                name
-                logo
-                thumbnail
-                backgroundColor
-                textColor
-                urlOem
-                slug
-                urlOemFacility
-            }
-            machines {
-                _id
-                name
-                serialNumber
-                description
-                documentationFiles
-                issues
-                documents {
-                    _id
-                    label
-                    href
-                    visibleForFacility
-                }
-                documentTree {
-                    _id
-                    dataTree {
-                        _id
-                        rootId
-                        items
-                    }
-                    machine {
-                        _id
-                        name
-                        serialNumber
-                        description
-                        documentationFiles
-                        issues
-                        image
-                        thumbnail
-                        totalOpenTickets
-                        slug
-                    }
-                }
-                customers {
-                    _id
-                    name
-                    oem {
-                        _id
-                        name
-                        logo
-                        thumbnail
-                        backgroundColor
-                        textColor
-                        urlOem
-                        slug
-                        urlOemFacility
-                    }
-                    machines {
-                        _id
-                        name
-                        serialNumber
-                        description
-                        documentationFiles
-                        issues
-                        image
-                        thumbnail
-                        totalOpenTickets
-                        slug
-                    }
-                    urlOemFacility
-                    totalMachines
-                    totalOpenTickets
-                    isQRCodeEnabled
-                    generalAccessUrl
-                }
-                oem {
-                    _id
-                    name
-                    logo
-                    thumbnail
-                    backgroundColor
-                    textColor
-                    urlOem
-                    slug
-                    urlOemFacility
-                }
-                image
-                thumbnail
-                totalOpenTickets
-                slug
-            }
-            urlOemFacility
-            totalMachines
-            totalOpenTickets
-            isQRCodeEnabled
-            generalAccessUrl
-        }
-        oem {
-            _id
-            name
-            logo
-            thumbnail
-            backgroundColor
-            textColor
-            urlOem
-            slug
-            urlOemFacility
-        }
+        info   
         access
         userType
         phone
@@ -133,7 +21,6 @@ const String currentUser = r'''
         userCredentialsSent
         isOem
         emailNotification
-        totalActiveTickets
         organizationName
         organizationType
         chatToken
@@ -147,6 +34,21 @@ const String currentUser = r'''
 const String newChatToken = '''
     query getNewChatToken {
       getNewChatToken
+    }
+  ''';
+
+
+const String oemStatuses = '''
+    query ListOwnOemOpenTickets {
+      listOwnOemOpenTickets {
+          oem {
+              statuses {
+                  _id
+                  label
+                  color
+              }
+          }
+      }
     }
   ''';
 
@@ -479,38 +381,80 @@ const String signS3Download = '''
               }
           ''';
 
-String listOwnOemCustomers = r"""
-          query listOwnOemCustomers {
-            listOwnOemCustomers() {
-              _id
-              name 
-              machines {
+// String listOwnOemCustomers = r"""
+//           query listOwnOemCustomers {
+//             listOwnOemCustomers() {
+//               _id
+//               name
+//               machines {
+//                 _id
+//                 name
+//                 serialNumber
+//                 description
+//                 customers {
+//                     _id
+//                     name
+//                 }
+//               }
+//             }
+//           }
+//    """;
+String listAllOwnOemCustomers = r"""
+          query ListAllOwnOemCustomers {
+    listAllOwnOemCustomers(params: { limit: 100 }) {
+        totalCount
+        limit
+        skip
+        currentPage
+        customers {
+            _id
+            name 
+            machines {
                 _id
                 name
                 serialNumber
-                description
-                customers {
+                description 
+                customer {
                     _id
                     name 
-                } 
-              }
+                }
             }
-          }
+        }
+    }
+}
+
    """;
 
-String listOwnOemMachines = r"""
-          query listOwnOemMachines {
-            listOwnOemMachines() {
-                  _id
-                  name
-                  serialNumber
-                  description
-                  customers {
-                      _id
-                      name 
-                  } 
+// String listOwnOemMachines = r"""
+//           query listOwnOemMachines {
+//             listOwnOemMachines() {
+//                   _id
+//                   name
+//                   serialNumber
+//                   description
+//                   customers {
+//                       _id
+//                       name
+//                   }
+//             }
+//           }
+//    """;
+
+String listOwnCustomerMachines2 = r"""
+          query ListOwnCustomerMachines {
+    listOwnCustomerMachines(params: { limit: 100 }) {
+        machines {
+            _id
+            name
+            serialNumber
+            description
+            customer {
+                _id
+                name
             }
-          }
+        }
+    }
+}
    """;
 
 String listOwnOemFacilityUsers = """

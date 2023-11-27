@@ -12,7 +12,7 @@ class AddTicketProvider with ChangeNotifier {
   bool _isDescriptionValidated = false;
   String _ticketTitle = "";
   String _ticketType = ticketTypeServiceRequest;
-  ListOwnOemCustomers? _facilityData = ListOwnOemCustomers();
+  Customers? _facilityData = Customers();
   ListMachines? _selectedMachineData = ListMachines();
   ListOwnOemFacilityUsers? _reporterData = ListOwnOemFacilityUsers();
   List<ListOwnOemFacilityUsers>? _reporterList = [];
@@ -21,7 +21,7 @@ class AddTicketProvider with ChangeNotifier {
 
   int get selectionTicketTypeRadio => _selectionTicketTypeRadio;
 
-  ListOwnOemCustomers? get facilityData => _facilityData;
+  Customers? get facilityData => _facilityData;
 
   ListMachines? get selectedMachineData => _selectedMachineData;
 
@@ -85,7 +85,7 @@ class AddTicketProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void setFacilityData(ListOwnOemCustomers? value) {
+  void setFacilityData(Customers? value) {
     _facilityData = value;
     notifyListeners();
   }

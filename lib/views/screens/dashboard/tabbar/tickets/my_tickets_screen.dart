@@ -1,9 +1,11 @@
 import 'dart:collection';
 
 import 'package:flutter/material.dart';
+import 'package:makula_oem/helper/model/get_status_response.dart';
 import 'package:makula_oem/helper/model/list_user_close_tickets_model.dart';
 import 'package:makula_oem/helper/model/list_user_open_tickets_model.dart';
 import 'package:makula_oem/helper/model/open_ticket_model.dart';
+import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
@@ -17,9 +19,8 @@ import 'package:pubnub/pubnub.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 class MyTicketsScreen extends StatefulWidget {
-  const MyTicketsScreen({Key? key, required PubnubInstance pubnub})
-      : _pubnub = pubnub,
-        super(key: key);
+  const MyTicketsScreen({super.key, required PubnubInstance pubnub})
+      : _pubnub = pubnub;
 
   final PubnubInstance _pubnub;
 
@@ -32,12 +33,19 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   ListUserCloseTickets _listUserCloseTickets = ListUserCloseTickets();
   final RefreshController _refreshController =
       RefreshController(initialRefresh: false);
-
+  final appPreferences = AppPreferences();
+  late StatusData oemStatus;
   //late TicketProvider _tickerProvider;
+
+  _getOEMStatuesValueFromSP() async {
+    oemStatus =
+        StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
+  }
 
   @override
   void initState() {
     //console("initState");
+    _getOEMStatuesValueFromSP();
     super.initState();
   }
 
@@ -116,6 +124,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                       itemBuilder: (context, i) {
                         return TicketWidget(
                           item: _listOpenTickets.openTicket![i],
+                          statusData: oemStatus,
                         );
                       })
                   : noTicketWidget(context, noOpenTicketLabel),
@@ -179,6 +188,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                               itemBuilder: (context, i) {
                                 return TicketWidget(
                                   item: _listUserCloseTickets.closeTickets![i],
+                                  statusData: oemStatus,
                                 );
                               })
                           : noTicketWidget(context,
@@ -197,19 +207,19 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
     console("_getOpenTickets");
     var result = await TicketViewModel().getListOwnOemUserOpenTickets();
     result.join(
-        (failed) => {console("failed => " + failed.exception.toString())},
+        (failed) => {console("failed => ${failed.exception}")},
         (loaded) => {_openTicketDetails(loaded.data)},
         (loading) => {
               console("loading => "),
             });
-    await await _getCloseTickets();
+    await _getCloseTickets();
   }
 
   _getCloseTickets() async {
     console("_getCloseTickets");
     var result = await TicketViewModel().getListOwnOemUserCloseTickets();
     result.join(
-        (failed) => {console("failed => " + failed.exception.toString())},
+        (failed) => {console("failed => ${failed.exception}")},
         (loaded) => {_closeTicketDetails(loaded.data)},
         (loading) => {
               console("loading => "),

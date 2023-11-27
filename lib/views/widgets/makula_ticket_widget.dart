@@ -1,6 +1,8 @@
 import 'package:badges/badges.dart';
+import 'package:badges/badges.dart' as badges;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:makula_oem/helper/model/get_status_response.dart';
 import 'package:makula_oem/helper/model/open_ticket_model.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
@@ -13,27 +15,29 @@ import 'package:makula_oem/views/widgets/makula_text_view.dart';
 import 'package:provider/provider.dart';
 
 class TicketWidget extends StatelessWidget {
-  TicketWidget({Key? key, required OpenTicket item})
-      : _item = item,
-        super(key: key);
+  const TicketWidget({super.key, required OpenTicket item, required this.statusData}) : _item = item;
 
   final OpenTicket _item;
-  BuildContext? mContext;
+  final StatusData? statusData;
+  // BuildContext? mContext;
 
   @override
   Widget build(BuildContext context) {
     var isUnread = _item.channelsWithCount > 0;
-    var status = _item.status ?? "";
+    Statuses? foundStatus = statusData?.listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
+          (status) => status.sId == _item.status,
+    );
+    var status = foundStatus?.label ?? "";
+    var statusColor = foundStatus?.color ?? "";
     console("ticketType => ${_item.ticketType}");
     var ticketType = _item.ticketType ?? ticketTypeServiceRequest;
     return isUnread
-        ? _unreadTicket(context, isUnread, status, ticketType)
-        : _readTicket(context, isUnread, status, ticketType);
+        ? _unreadTicket(context, isUnread, status, ticketType, statusColor)
+        : _readTicket(context, isUnread, status, ticketType,  statusColor);
   }
 
   Widget _itemWidget(
-      BuildContext context, bool isUnread, String status, String ticketType) {
-    mContext = context;
+      BuildContext context, bool isUnread, String status, String ticketType,String statusColor) {
     return GestureDetector(
       onTap: () {
         context.read<TicketProvider>().setTicketItemDetails(_item);
@@ -42,8 +46,10 @@ class TicketWidget extends StatelessWidget {
             .setChannelId(_item.ticketChatChannels![0].toString());
         Navigator.of(context).push(
           MaterialPageRoute(
-              builder: (context) => TicketDetailScreen(channelId: _item.ticketChatChannels![0].toString() , ticket: _item,)
-          ),
+              builder: (context) => TicketDetailScreen(
+                    channelId: _item.ticketChatChannels![0].toString(),
+                    ticket: _item,
+                  )),
         );
 
         // Navigator.of(context).pushNamed(ticketDetailScreenRoute);
@@ -121,7 +127,7 @@ class TicketWidget extends StatelessWidget {
                   Row(
                     children: [
                       SvgPicture.asset(
-                        status != "closed"
+                        status != "Closed" // CLOSED
                             ? "assets/images/assignee.svg"
                             : "assets/images/ic_assignee_closed.svg",
                       ),
@@ -159,28 +165,28 @@ class TicketWidget extends StatelessWidget {
   }
 
   Widget _unreadTicket(
-      BuildContext context, bool isUnread, String status, String ticketType) {
+      BuildContext context, bool isUnread, String status, String ticketType, String statusColor) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: const Color(0xffffffff),
-      child: _itemWidget(context, isUnread, status, ticketType),
+      child: _itemWidget(context, isUnread, status, ticketType,statusColor),
     );
   }
 
   Widget _readTicket(
-      BuildContext context, bool isUnread, String status, String ticketType) {
+      BuildContext context, bool isUnread, String status, String ticketType, String statusColor) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: const Color(0xffffffff),
         borderRadius: BorderRadius.circular(8.0),
       ),
-      child: _itemWidget(context, isUnread, status, ticketType),
+      child: _itemWidget(context, isUnread, status, ticketType, statusColor),
     );
   }
 
   Widget _unreadImage(bool isUnread, String status, String ticketType) {
-    return Badge(
+    return badges.Badge(
       position: BadgePosition.bottomStart(bottom: 2, start: -2),
       badgeContent: Text(
         _item.channelsWithCount.toString(),

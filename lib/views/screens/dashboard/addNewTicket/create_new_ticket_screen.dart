@@ -1,3 +1,4 @@
+// import 'package:dropdown_search/dropdown_search.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,24 +10,24 @@ import 'package:makula_oem/helper/model/list_facility_users.dart';
 import 'package:makula_oem/helper/model/list_own_oem_customers_model.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
+import 'package:makula_oem/helper/utils/extension_functions.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/views/screens/dashboard/addNewTicket/provider/add_ticket_provider.dart';
 import 'package:makula_oem/views/screens/dashboard/addNewTicket/viewmodel/add_ticket_view_model.dart';
 import 'package:makula_oem/views/widgets/makula_app_bar_gray.dart';
 import 'package:makula_oem/views/widgets/makula_edit_text.dart';
 import 'package:makula_oem/views/widgets/makula_text_view.dart';
-import 'package:makula_oem/helper/utils/extension_functions.dart';
 import 'package:provider/provider.dart';
 
 class CreateNewTicket extends StatefulWidget {
-  const CreateNewTicket({Key? key}) : super(key: key);
+  const CreateNewTicket({super.key});
 
   @override
   State<CreateNewTicket> createState() => _CreateNewTicketState();
 }
 
 class _CreateNewTicketState extends State<CreateNewTicket> {
-  OwnOemCustomersModel _customersModel = OwnOemCustomersModel();
+  AllOwnOemCustomersModel _customersModel = AllOwnOemCustomersModel();
   GetMachinesResponse _machinesResponse = GetMachinesResponse();
   FacilityUsersModel _facilityUsersModel = FacilityUsersModel();
   late AddTicketProvider addTicketProvider;
@@ -34,6 +35,7 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
   final FocusNode _titleFieldFocus = FocusNode();
   final FocusNode _descFieldFocus = FocusNode();
   final TextEditingController _descriptionController = TextEditingController();
+
   _addEditTextListeners() {
     _titleController.addListener(() {
       if (_titleController.text.isNotEmpty) {
@@ -43,6 +45,7 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
       }
     });
   }
+
   @override
   void initState() {
     addTicketProvider = Provider.of<AddTicketProvider>(context, listen: false);
@@ -197,14 +200,14 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
               const SizedBox(
                 height: 8,
               ),
-              DropdownSearch<ListOwnOemCustomers>(
-                mode: Mode.MENU,
-                showSearchBox: true,
-                items: _customersModel.listOwnOemCustomers,
+              DropdownSearch<Customers>(
+                //mode: Mode.MENU,
+                //showSearchBox: true,
+                items: _customersModel.listAllOwnOemCustomers?.customers ?? [],
                 selectedItem: addTicketProvider.facilityData,
-                itemAsString: (ListOwnOemCustomers? u) =>
+                itemAsString: (Customers? u) =>
                     u == null ? "" : u.name.toString(),
-                onChanged: (ListOwnOemCustomers? data) => {
+                onChanged: (Customers? data) => {
                   addTicketProvider.setFacilityData(data),
                   addTicketProvider.setMachineData(null),
                   provider.setReporterData(null),
@@ -212,34 +215,19 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
                   _listOwnOemFacilityUsers(data?.sId.toString() ?? ""),
                   addTicketProvider.getMachineListFromFacility(data?.machines),
                 },
-                popupShape: RoundedRectangleBorder(
-                  side: BorderSide(color: primaryColor, width: .5),
-                  borderRadius:
-                      const BorderRadius.vertical(bottom: Radius.circular(8)),
-                ),
-                searchFieldProps: TextFieldProps(
-                  decoration: InputDecoration(
-                    hintText: "Search Facility",
-                    contentPadding: const EdgeInsets.only(left: 8, bottom: 4),
-
-                    //This is for Inner DropDown Search Input
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: textColorLight, width: .5),
+                dropdownDecoratorProps: DropDownDecoratorProps(
+                  dropdownSearchDecoration: InputDecoration(
+                    hintText: "Select Facility",
+                    contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(color: primaryColor, width: 2),
                       borderRadius: const BorderRadius.all(Radius.circular(8)),
                     ),
-                  ),
-                ),
-                dropdownSearchDecoration: InputDecoration(
-                  hintText: "Select Facility",
-                  contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
-                  border: OutlineInputBorder(
-                    borderSide: BorderSide(color: primaryColor, width: 2),
-                    borderRadius: const BorderRadius.all(Radius.circular(8)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: primaryColor, width: .5),
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(8)),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: primaryColor, width: .5),
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(8)),
+                    ),
                   ),
                 ),
               ),
@@ -276,56 +264,90 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
               const SizedBox(
                 height: 6,
               ),
-              DropdownSearch<ListMachines>(
-                mode: Mode.MENU,
-                showSearchBox: true,
-                selectedItem: addTicketProvider.selectedMachineData,
-                items: addTicketProvider.machineList,
-                itemAsString: (ListMachines? u) => u == null
-                    ? ""
-                    : "${u.name.toString()} • ${u.serialNumber.toString()}",
-                onChanged: (ListMachines? data) => {
-                  addTicketProvider.setMachineData(data!),
-                  provider.setReporterData(null),
-                  provider.setReporterData(null),
-                  addTicketProvider.setFacilityData(ListOwnOemCustomers(
-                    sId: data.customers![0].sId.toString(),
-                    name: data.customers![0].name.toString(),
-                  )),
-                  _listOwnOemFacilityUsers(data.customers![0].sId.toString()),
-                },
-                popupShape: RoundedRectangleBorder(
-                  side: BorderSide(color: primaryColor, width: .5),
-                  borderRadius:
-                      const BorderRadius.vertical(bottom: Radius.circular(8)),
-                ),
-                searchFieldProps: TextFieldProps(
-                  decoration: InputDecoration(
-                    hintText: "Search Machine",
-                    contentPadding: const EdgeInsets.only(left: 8, bottom: 4),
 
-                    //This is for Inner DropDown Search Input
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: textColorLight, width: .5),
+              DropdownSearch<ListMachines>(
+                //mode: Mode.MENU,
+                //showSearchBox: true,
+                items: addTicketProvider.machineList ?? [],
+                selectedItem: addTicketProvider.selectedMachineData,
+                itemAsString: (ListMachines? u) =>
+                u == null ? "" : u.name.toString(),
+                onChanged: (ListMachines? data) => {
+                      addTicketProvider.setMachineData(data!),
+                      provider.setReporterData(null),
+                      provider.setReporterData(null),
+                      // addTicketProvider.setFacilityData(Customers(
+                      //   sId: data.customer?.sId.toString(),
+                      //   name: data.customer?.name.toString(),
+                      // )),
+                      _listOwnOemFacilityUsers(data.customer?.sId.toString() ?? ""),
+                },
+                dropdownDecoratorProps: DropDownDecoratorProps(
+                  dropdownSearchDecoration: InputDecoration(
+                    hintText: "Select Machine",
+                    contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(color: primaryColor, width: 2),
                       borderRadius: const BorderRadius.all(Radius.circular(8)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: primaryColor, width: .5),
+                      borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(8)),
                     ),
                   ),
                 ),
-                dropdownSearchDecoration: InputDecoration(
-                  hintText: "Select Machine",
-                  contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
-                  border: OutlineInputBorder(
-                    borderSide: BorderSide(color: primaryColor, width: 2),
-                    borderRadius: const BorderRadius.all(Radius.circular(8)),
-                  ),
-                  //This is for the main panel, when the dropdown appears.
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: primaryColor, width: .5),
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(8)),
-                  ),
-                ),
               ),
+              // DropdownSearch<ListMachines>(
+              //   mode: Mode.MENU,
+              //   showSearchBox: true,
+              //   selectedItem: addTicketProvider.selectedMachineData,
+              //   items: addTicketProvider.machineList,
+              //   itemAsString: (ListMachines? u) => u == null
+              //       ? ""
+              //       : "${u.name.toString()} • ${u.serialNumber.toString()}",
+              //   onChanged: (ListMachines? data) => {
+              //     addTicketProvider.setMachineData(data!),
+              //     provider.setReporterData(null),
+              //     provider.setReporterData(null),
+              //     addTicketProvider.setFacilityData(ListOwnOemCustomers(
+              //       sId: data.customers![0].sId.toString(),
+              //       name: data.customers![0].name.toString(),
+              //     )),
+              //     _listOwnOemFacilityUsers(data.customers![0].sId.toString()),
+              //   },
+              //   popupShape: RoundedRectangleBorder(
+              //     side: BorderSide(color: primaryColor, width: .5),
+              //     borderRadius:
+              //         const BorderRadius.vertical(bottom: Radius.circular(8)),
+              //   ),
+              //   searchFieldProps: TextFieldProps(
+              //     decoration: InputDecoration(
+              //       hintText: "Search Machine",
+              //       contentPadding: const EdgeInsets.only(left: 8, bottom: 4),
+              //
+              //       //This is for Inner DropDown Search Input
+              //       enabledBorder: OutlineInputBorder(
+              //         borderSide: BorderSide(color: textColorLight, width: .5),
+              //         borderRadius: const BorderRadius.all(Radius.circular(8)),
+              //       ),
+              //     ),
+              //   ),
+              //   dropdownSearchDecoration: InputDecoration(
+              //     hintText: "Select Machine",
+              //     contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
+              //     border: OutlineInputBorder(
+              //       borderSide: BorderSide(color: primaryColor, width: 2),
+              //       borderRadius: const BorderRadius.all(Radius.circular(8)),
+              //     ),
+              //     //This is for the main panel, when the dropdown appears.
+              //     focusedBorder: OutlineInputBorder(
+              //       borderSide: BorderSide(color: primaryColor, width: .5),
+              //       borderRadius:
+              //           const BorderRadius.vertical(top: Radius.circular(8)),
+              //     ),
+              //   ),
+              // ),
               addTicketProvider.selectedMachineData == null
                   ? Container(
                       margin: const EdgeInsets.only(top: 4),
@@ -366,44 +388,70 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
               const SizedBox(
                 height: 6,
               ),
+
               DropdownSearch<ListOwnOemFacilityUsers>(
-                mode: Mode.MENU,
-                showSearchBox: false,
-                items: _facilityUsersModel.listOwnOemFacilityUsers,
+                //mode: Mode.MENU,
+                //showSearchBox: true,
+                items: _facilityUsersModel.listOwnOemFacilityUsers ?? [],
                 selectedItem: addTicketProvider.reporterData,
                 itemAsString: (ListOwnOemFacilityUsers? u) =>
-                    u == null ? "" : u.name.toString(),
-                onChanged: (ListOwnOemFacilityUsers? data) =>
-                    {addTicketProvider.setReporterData(data)},
-                popupShape: RoundedRectangleBorder(
-                  side: BorderSide(color: primaryColor, width: .5),
-                  borderRadius:
-                      const BorderRadius.vertical(bottom: Radius.circular(8)),
-                ),
-                searchFieldProps: TextFieldProps(
-                  decoration: InputDecoration(
-                    hintText: "Search Reporter",
-                    contentPadding: const EdgeInsets.only(left: 8, bottom: 4),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: textColorLight, width: .5),
+                u == null ? "" : u.name.toString(),
+                  onChanged: (ListOwnOemFacilityUsers? data) =>
+                      {addTicketProvider.setReporterData(data)},
+                dropdownDecoratorProps: DropDownDecoratorProps(
+                  dropdownSearchDecoration: InputDecoration(
+                    hintText: "Select Reporter",
+                    contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(color: primaryColor, width: 2),
                       borderRadius: const BorderRadius.all(Radius.circular(8)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: primaryColor, width: .5),
+                      borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(8)),
                     ),
                   ),
                 ),
-                dropdownSearchDecoration: InputDecoration(
-                  hintText: "Select Reporter",
-                  contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
-                  border: OutlineInputBorder(
-                    borderSide: BorderSide(color: primaryColor, width: 2),
-                    borderRadius: const BorderRadius.all(Radius.circular(8)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: primaryColor, width: .5),
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(8)),
-                  ),
-                ),
               ),
+              // DropdownSearch<ListOwnOemFacilityUsers>(
+              //   mode: Mode.MENU,
+              //   showSearchBox: false,
+              //   items: _facilityUsersModel.listOwnOemFacilityUsers,
+              //   selectedItem: addTicketProvider.reporterData,
+              //   itemAsString: (ListOwnOemFacilityUsers? u) =>
+              //       u == null ? "" : u.name.toString(),
+              //   onChanged: (ListOwnOemFacilityUsers? data) =>
+              //       {addTicketProvider.setReporterData(data)},
+              //   popupShape: RoundedRectangleBorder(
+              //     side: BorderSide(color: primaryColor, width: .5),
+              //     borderRadius:
+              //         const BorderRadius.vertical(bottom: Radius.circular(8)),
+              //   ),
+              //   searchFieldProps: TextFieldProps(
+              //     decoration: InputDecoration(
+              //       hintText: "Search Reporter",
+              //       contentPadding: const EdgeInsets.only(left: 8, bottom: 4),
+              //       enabledBorder: OutlineInputBorder(
+              //         borderSide: BorderSide(color: textColorLight, width: .5),
+              //         borderRadius: const BorderRadius.all(Radius.circular(8)),
+              //       ),
+              //     ),
+              //   ),
+              //   dropdownSearchDecoration: InputDecoration(
+              //     hintText: "Select Reporter",
+              //     contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
+              //     border: OutlineInputBorder(
+              //       borderSide: BorderSide(color: primaryColor, width: 2),
+              //       borderRadius: const BorderRadius.all(Radius.circular(8)),
+              //     ),
+              //     focusedBorder: OutlineInputBorder(
+              //       borderSide: BorderSide(color: primaryColor, width: .5),
+              //       borderRadius:
+              //           const BorderRadius.vertical(top: Radius.circular(8)),
+              //     ),
+              //   ),
+              // ),
               const SizedBox(
                 height: 24,
               ),
@@ -443,30 +491,30 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
                   validateError: "This field is required"),
               _titleController.text.isEmpty
                   ? Container(
-                margin: const EdgeInsets.only(top: 4),
-                alignment: Alignment.centerLeft,
-                child: Row(
-                  children: [
-                    SvgPicture.asset("assets/images/errors.svg"),
-                    const SizedBox(
-                      width: 4,
-                    ),
-                    Text(
-                      'This field is required.',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 12,
-                        color: redStatusColor,
-                        fontWeight: FontWeight.w600,
-                        height: 1.6666666666666667,
+                      margin: const EdgeInsets.only(top: 4),
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        children: [
+                          SvgPicture.asset("assets/images/errors.svg"),
+                          const SizedBox(
+                            width: 4,
+                          ),
+                          Text(
+                            'This field is required.',
+                            style: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: 12,
+                              color: redStatusColor,
+                              fontWeight: FontWeight.w600,
+                              height: 1.6666666666666667,
+                            ),
+                            textHeightBehavior: const TextHeightBehavior(
+                                applyHeightToFirstAscent: false),
+                            textAlign: TextAlign.left,
+                          ),
+                        ],
                       ),
-                      textHeightBehavior: const TextHeightBehavior(
-                          applyHeightToFirstAscent: false),
-                      textAlign: TextAlign.left,
-                    ),
-                  ],
-                ),
-              )
+                    )
                   : Container(),
               const SizedBox(
                 height: 24,
@@ -497,13 +545,12 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
             ],
           );
         }));
-
   }
 
   _getListOwnOemCustomers() async {
     var result = await AddTicketViewModel().getListOwnOemCustomers();
     result.join(
-        (failed) => {console("failed => " + failed.exception.toString())},
+        (failed) => {console("failed => ${failed.exception}")},
         (loaded) => {
               _customersModel = loaded.data,
             },
@@ -511,21 +558,21 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
               console("loading => "),
             });
 
-    await _getAllMachines();
+    //await _getAllMachines();
   }
 
-  _getAllMachines() async {
-    var result = await AddTicketViewModel().getAllMachines();
-    result.join(
-        (failed) => {console("failed => " + failed.exception.toString())},
-        (loaded) => {
-              _machinesResponse = loaded.data,
-              _setMachineListOnProvider(_machinesResponse),
-            },
-        (loading) => {
-              console("loading => "),
-            });
-  }
+  // _getAllMachines() async {
+  //   var result = await AddTicketViewModel().getAllMachines();
+  //   result.join(
+  //       (failed) => {console("failed => ${failed.exception}")},
+  //       (loaded) => {
+  //             _machinesResponse = loaded.data,
+  //             _setMachineListOnProvider(_machinesResponse),
+  //           },
+  //       (loading) => {
+  //             console("loading => "),
+  //           });
+  // }
 
   _setMachineListOnProvider(GetMachinesResponse _machinesResponse) {
     Provider.of<AddTicketProvider>(context, listen: false)
@@ -533,11 +580,12 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
   }
 
   _listOwnOemFacilityUsers(String facilityId) async {
+    console("facilityId=> $facilityId");
     context.showCustomDialog();
     var result = await AddTicketViewModel().listFacilityUsers(facilityId);
     Navigator.pop(context);
     result.join(
-        (failed) => {console("failed => " + failed.exception.toString())},
+        (failed) => {console("failed => ${failed.exception}")},
         (loaded) => {
               _facilityUsersModel = loaded.data,
               _setReporterListOnProvider(loaded.data),
@@ -561,12 +609,12 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
     } else {
       addTicketProvider.setIsTitleValidate(false);
     }
-    console(" addTicketProvider.isTitleValidated => ${ addTicketProvider.isTitleValidated}");
+    console(
+        " addTicketProvider.isTitleValidated => ${addTicketProvider.isTitleValidated}");
     console("_submitTicket ${addTicketProvider.ticketType}");
     if (addTicketProvider.facilityData != null &&
         addTicketProvider.selectedMachineData != null &&
         title.isNotEmpty) {
-
       context.showCustomDialog();
       var result = await AddTicketViewModel().addNewTicket(
         addTicketProvider.selectedMachineData?.sId.toString() ?? "",
@@ -582,7 +630,6 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
           (loaded) => {
                 Navigator.pop(context),
                 context.showSuccessSnackBar("Ticket Created"),
-
               },
           (loading) => {
                 console("loading => "),

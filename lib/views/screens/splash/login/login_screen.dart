@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:makula_oem/helper/graphQL/graph_ql_config.dart';
 import 'package:makula_oem/helper/model/get_current_user_details_model.dart';
+import 'package:makula_oem/helper/model/get_status_response.dart';
 import 'package:makula_oem/helper/model/login_mobile_oem_response.dart';
 import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
@@ -17,7 +18,6 @@ import 'package:makula_oem/views/widgets/makula_edit_text.dart';
 import 'package:makula_oem/views/widgets/makula_text_view.dart';
 import 'package:provider/provider.dart';
 
-
 final TextEditingController _emailController = TextEditingController();
 final TextEditingController _passwordController = TextEditingController();
 final FocusNode _emailFieldFocus = FocusNode();
@@ -26,7 +26,7 @@ late BuildContext _context;
 final appPreferences = AppPreferences();
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   _LoginScreenState createState() => _LoginScreenState();
@@ -217,6 +217,7 @@ void _signIn() async {
     _context.read<LoginProvider>().setEmailValidation(false);
 
     _context.showCustomDialog();
+    console("LoginViewModel");
     var result =
         await LoginViewModel().login(email, password.convertStringToBase64());
     result.join(
@@ -246,6 +247,7 @@ void _signIn() async {
 }
 
 _saveUserToken(LoginMobile data) async {
+  console("_saveUserToken");
   appPreferences.setString(AppPreferences.TOKEN, data.token.toString());
   appPreferences.setString(
       AppPreferences.REFRESH_TOKEN, data.refreshToken.toString());
@@ -256,13 +258,13 @@ _saveUserToken(LoginMobile data) async {
 }
 
 _getCurrentUserDetails() async {
+  console("_getCurrentUserDetails");
   var result = await LoginViewModel().getCurrentUserDetails();
   result.join(
-      (failed) => {
-            Navigator.pop(_context),
-            console("failed => " + failed.exception.toString())
-          },
+      (failed) =>
+          {Navigator.pop(_context), console("failed => ${failed.exception}")},
       (loaded) => {
+            console("_getCurrentUserDetails => ${loaded.data}"),
             Navigator.pop(_context),
             _saveUserDetailsInAppPreferences(loaded.data),
           },
@@ -274,8 +276,41 @@ _getCurrentUserDetails() async {
 _saveUserDetailsInAppPreferences(CurrentUser data) async {
   console("_getCurrentUserDetails => ${data.email}");
   await appPreferences.setData(AppPreferences.USER, data);
-  Navigator.of(_context).pushNamedAndRemoveUntil(
-      dashboardScreenRoute, (Route<dynamic> route) => false);
+  _getOEMStatues();
+  // if (_context.mounted) {
+  //   Navigator.of(_context).pushNamedAndRemoveUntil(
+  //       dashboardScreenRoute, (Route<dynamic> route) => false);
+  // }
+}
+
+_getOEMStatues() async {
+  try {
+    var result = await LoginViewModel().getOEMStatuses();
+    result.join(
+            (failed) => {
+          Navigator.pushReplacementNamed(_context, loginScreenRoute),
+          console("failed => ${failed.exception}")
+        },
+            (loaded) => {
+          // console("loaded => " + loaded.data)
+          _saveOEMStatues(loaded.data)
+        },
+            (loading) => {
+          console("loading => "),
+        });
+  } catch (e) {
+    console("_getOEMStatues = $e");
+    if (_context.mounted) Navigator.pushReplacementNamed(_context, loginScreenRoute);
+  }
+}
+
+_saveOEMStatues(StatusData response) async {
+  console("_saveOEMStatues => ${response.listOwnOemOpenTickets?.length}");
+  await appPreferences.setData(AppPreferences.STATUES, response);
+  if (_context.mounted) {
+    Navigator.of(_context).pushNamedAndRemoveUntil(
+        dashboardScreenRoute, (Route<dynamic> route) => false);
+  }
 }
 
 _addEditTextListeners() {

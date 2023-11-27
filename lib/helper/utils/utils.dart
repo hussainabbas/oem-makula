@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'package:makula_oem/helper/model/get_status_response.dart';
+import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
 
@@ -111,19 +113,50 @@ Color getContainerFrontColor2(String status) {
   }
 }
 
+Future<Statuses?> getStatusById(String desiredStatusId) async {
+  var appPreferences = AppPreferences();
+  var statusData =
+  StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
+
+  console("getStatusById statusData => ${statusData.listOwnOemOpenTickets?[0].oem?.statuses?.length}");
+  Statuses? foundStatus = statusData.listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
+        (status) => status.sId == desiredStatusId,
+  );
+
+  console("getStatusById => ${foundStatus?.label}");
+
+  return foundStatus;
+}
+
+
+Future<Statuses?> getStatusByName(String desiredStatusName) async {
+  var appPreferences = AppPreferences();
+  var statusData =
+  StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
+
+  console("getStatusByName statusData => ${statusData.listOwnOemOpenTickets?[0].oem?.statuses?.length}");
+  Statuses? foundStatus = statusData.listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
+        (status) => status.label == desiredStatusName,
+  );
+
+  console("getStatusById => ${foundStatus?.label}");
+
+  return foundStatus;
+}
 
 Color getStatusContainerColor(String status) {
-  if (status == "open") {
+  String lowerCaseStatus = status.toLowerCase();
+  if (lowerCaseStatus == "open") {
     return redContainerColor;
-  } else if (status == "on hold" || status == "hold") {
+  } else if (lowerCaseStatus == "on hold" || lowerCaseStatus == "hold") {
     return onHoldContainerColor;
-  } else if (status == "visit planned" || status == "visit") {
+  } else if (lowerCaseStatus == "visit planned" || lowerCaseStatus == "visit") {
     return visitContainerColor;
-  } else if (status == "waiting input" || status == "waiting") {
+  } else if (lowerCaseStatus == "waiting input" || lowerCaseStatus == "waiting") {
     return waitingContainerColor;
-  } else if (status == "closed") {
+  } else if (lowerCaseStatus == "closed") {
     return closedContainerColor;
-  } else if (status == "callback scheduled" || status == "callback") {
+  } else if (lowerCaseStatus == "callback scheduled" || lowerCaseStatus == "callback") {
     return callbackContainerColor;
   } else {
     return redContainerColor;
@@ -132,17 +165,18 @@ Color getStatusContainerColor(String status) {
 
 Color getStatusColor(String status) {
   ////print"status = $status");
-  if (status == "open") {
+  String lowerCaseStatus = status.toLowerCase();
+  if (lowerCaseStatus == "open") {
     return redStatusColor;
-  } else if (status == "on hold" || status == "hold") {
+  } else if (lowerCaseStatus == "on hold" || lowerCaseStatus == "hold") {
     return onHoldStatusColor;
-  } else if (status == "visit planned" || status == "visit") {
+  } else if (lowerCaseStatus == "visit planned" || lowerCaseStatus == "visit") {
     return visitStatusColor;
-  } else if (status == "waiting input" || status == "waiting") {
+  } else if (lowerCaseStatus == "waiting input" || lowerCaseStatus == "waiting") {
     return waitingStatusColor;
-  } else if (status == "closed") {
+  } else if (lowerCaseStatus == "closed") {
     return closedStatusColor;
-  } else if (status == "callback scheduled" || status == "callback") {
+  } else if (lowerCaseStatus == "callback scheduled" || lowerCaseStatus == "callback") {
     return callbackStatusColor;
   } else {
     return redStatusColor;

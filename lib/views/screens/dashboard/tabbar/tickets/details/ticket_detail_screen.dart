@@ -5,18 +5,16 @@ import 'package:makula_oem/helper/utils/constants.dart';
 import 'package:makula_oem/helper/utils/routes.dart';
 import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/details/chat_screen.dart';
 import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/details/ticket_overview_screen.dart';
-import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/provider/ticket_provider.dart';
 import 'package:makula_oem/views/widgets/makula_app_bar_gray.dart';
-import 'package:provider/provider.dart';
 
 class TicketDetailScreen extends StatefulWidget {
-  TicketDetailScreen({Key? key, required String channelId, required OpenTicket ticket})
+  const TicketDetailScreen(
+      {super.key, required String channelId, required OpenTicket ticket})
       : _ticket = ticket,
-        _channelId = channelId,
-        super(key: key);
+        _channelId = channelId;
 
-  OpenTicket _ticket;
-  String _channelId;
+  final OpenTicket _ticket;
+  final String _channelId;
 
   @override
   _TicketDetailScreenState createState() => _TicketDetailScreenState();
@@ -25,6 +23,7 @@ class TicketDetailScreen extends StatefulWidget {
 class _TicketDetailScreenState extends State<TicketDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _controller;
+
   //OpenTicket _ticket = OpenTicket();
 
   @override
@@ -38,7 +37,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-   // _ticket = context.watch<TicketProvider>().ticketItem;
+    // _ticket = context.watch<TicketProvider>().ticketItem;
     return WillPopScope(
       onWillPop: () async {
         //Navigator.popUntil(context, ModalRoute.withName(dashboardScreenRoute));
@@ -80,7 +79,6 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                     fontWeight: FontWeight.w700,
                     fontFamily: 'Manrope'),
                 tabs: const [
-
                   Tab(
                     text: ticketOverViewLabel,
                   ),
@@ -94,8 +92,14 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                 child: TabBarView(
               controller: _controller,
               children: [
-                TicketOverviewScreen(ticket: widget._ticket, channelId: widget._channelId,),
-                ChatScreen(ticket: widget._ticket, channelId: widget._channelId,),
+                TicketOverviewScreen(
+                  ticket: widget._ticket,
+                  channelId: widget._channelId,
+                ),
+                ChatScreen(
+                  ticket: widget._ticket,
+                  channelId: widget._channelId,
+                ),
               ],
             ))
           ],

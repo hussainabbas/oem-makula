@@ -26,6 +26,12 @@ apply plugin: 'kotlin-android'
 apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
 android {
+    lintOptions {
+        disable 'InvalidPackage'
+        disable "Instantiatable"
+        checkReleaseBuilds false
+        abortOnError false
+    }
     signingConfigs {
         release {
             storeFile file('/Users/hussain-abbas/AndroidStudioProjects/MMMTech/keystores/makula_keystore.jks')
@@ -69,6 +75,7 @@ android {
             signingConfig signingConfigs.debug
         }
     }
+    namespace 'com.app.makula'
 }
 
 flutter {

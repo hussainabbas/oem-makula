@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:makula_oem/helper/graphQL/api_calls.dart';
+import 'package:makula_oem/helper/model/get_status_response.dart';
 import 'package:makula_oem/helper/model/list_close_tickets_model.dart';
+import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
@@ -10,9 +13,8 @@ import 'package:makula_oem/views/widgets/makula_ticket_widget.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 class ClosedTicketsScreen extends StatefulWidget {
-  const ClosedTicketsScreen({Key? key, required PubnubInstance pubnub})
-      : _pubnub = pubnub,
-        super(key: key);
+  const ClosedTicketsScreen({super.key, required PubnubInstance pubnub})
+      : _pubnub = pubnub;
 
   final PubnubInstance _pubnub;
 
@@ -26,9 +28,19 @@ class _ClosedTicketsScreenState extends State<ClosedTicketsScreen> {
   ListCloseTickets _listCloseTickets = ListCloseTickets();
   final RefreshController _refreshController =
       RefreshController(initialRefresh: false);
+  final appPreferences = AppPreferences();
+  late StatusData oemStatus;
+  //late TicketProvider _tickerProvider;
+
+  _getOEMStatuesValueFromSP() async {
+    oemStatus =
+        StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
+  }
+
 
   @override
   void initState() {
+    _getOEMStatuesValueFromSP();
     super.initState();
   }
 
@@ -93,6 +105,7 @@ class _ClosedTicketsScreenState extends State<ClosedTicketsScreen> {
                       itemBuilder: (context, i) {
                         return TicketWidget(
                           item: _listCloseTickets.closeTickets![i],
+                          statusData: oemStatus,
                         );
                       })
                   : noTicketWidget(context, noCloseTicketLabel)
@@ -104,7 +117,7 @@ class _ClosedTicketsScreenState extends State<ClosedTicketsScreen> {
   _getFacilityCloseTickets() async {
     var result = await TicketViewModel().getListOwnFacilityCloseTickets();
     result.join(
-        (failed) => {console("failed => " + failed.exception.toString())},
+        (failed) => {console("failed => ${failed.exception}")},
         (loaded) => {_facilityDetails(loaded.data)},
         (loading) => {
               console("loading => "),

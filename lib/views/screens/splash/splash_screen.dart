@@ -6,13 +6,14 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:makula_oem/helper/graphQL/graph_ql_config.dart';
 import 'package:makula_oem/helper/model/get_current_user_details_model.dart';
 import 'package:makula_oem/helper/model/get_new_chat_token.dart';
+import 'package:makula_oem/helper/model/get_status_response.dart';
 import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/routes.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/helper/viewmodels/login_view_model.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
   _SplashScreenState createState() => _SplashScreenState();
@@ -69,7 +70,7 @@ class _SplashScreenState extends State<SplashScreen> {
       result.join(
           (failed) => {
                 Navigator.pushReplacementNamed(context, loginScreenRoute),
-                console("failed => " + failed.exception.toString())
+                console("failed => ${failed.exception}")
               },
           (loaded) => {
                 // console("loaded => " + loaded.data)
@@ -87,8 +88,38 @@ class _SplashScreenState extends State<SplashScreen> {
   _saveUserDetailsInAppPreferences(CurrentUser user, NewChatToken token) async {
     user.chatToken = token.getNewChatToken.toString();
     await appPreferences.setData(AppPreferences.USER, user);
-    Navigator.of(context).pushNamedAndRemoveUntil(
-        dashboardScreenRoute, (Route<dynamic> route) => false);
+    await _getOEMStatues();
+
+  }
+
+  _getOEMStatues() async {
+    try {
+      var result = await LoginViewModel().getOEMStatuses();
+      result.join(
+              (failed) => {
+            Navigator.pushReplacementNamed(context, loginScreenRoute),
+            console("failed => ${failed.exception}")
+          },
+              (loaded) => {
+            // console("loaded => " + loaded.data)
+            _saveOEMStatues(loaded.data)
+          },
+              (loading) => {
+            console("loading => "),
+          });
+    } catch (e) {
+      console("_getOEMStatues = $e");
+      if (context.mounted) Navigator.pushReplacementNamed(context, loginScreenRoute);
+    }
+  }
+
+  _saveOEMStatues(StatusData response) async {
+    console("_saveOEMStatues => ${response.listOwnOemOpenTickets?.length}");
+    await appPreferences.setData(AppPreferences.STATUES, response);
+    if (context.mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil(
+          dashboardScreenRoute, (Route<dynamic> route) => false);
+    }
   }
 
   @override

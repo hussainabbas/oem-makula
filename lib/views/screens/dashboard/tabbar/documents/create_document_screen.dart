@@ -1,3 +1,4 @@
+// import 'package:dropdown_search/dropdown_search.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -33,7 +34,7 @@ class CreateDocumentScreen extends StatefulWidget {
 }
 
 class _CreateDocumentScreenState extends State<CreateDocumentScreen> {
-  OwnOemCustomersModel _customersModel = OwnOemCustomersModel();
+  AllOwnOemCustomersModel _customersModel = AllOwnOemCustomersModel();
   GetMachinesResponse _machinesResponse = GetMachinesResponse();
   late AddTicketProvider addTicketProvider;
   DateTime selectedDate = DateTime.now();
@@ -135,58 +136,90 @@ class _CreateDocumentScreenState extends State<CreateDocumentScreen> {
                     const SizedBox(
                       height: 8,
                     ),
-                    DropdownSearch<ListOwnOemCustomers>(
-                      mode: Mode.MENU,
-                      showSearchBox: true,
-                      items: _customersModel.listOwnOemCustomers,
+
+                    DropdownSearch<Customers>(
+                      //mode: Mode.MENU,
+                      //showSearchBox: true,
+                      items: _customersModel.listAllOwnOemCustomers?.customers ?? [],
                       selectedItem: addTicketProvider.facilityData,
-                      itemAsString: (ListOwnOemCustomers? u) =>
-                          u == null ? "" : u.name.toString(),
-                      onChanged: (ListOwnOemCustomers? data) => {
+                      itemAsString: (Customers? u) =>
+                      u == null ? "" : u.name.toString(),
+                      onChanged: (Customers? data) => {
                         addTicketProvider.setFacilityData(data),
                         addTicketProvider.setMachineData(null),
                         provider.setReporterData(null),
-                        //_listOwnOemFacilityUsers(data?.sId.toString() ?? ""),
-                        addTicketProvider
-                            .getMachineListFromFacility(data?.machines),
-                      },
-                      popupShape: RoundedRectangleBorder(
-                        side: BorderSide(color: primaryColor, width: .5),
-                        borderRadius: const BorderRadius.vertical(
-                            bottom: Radius.circular(8)),
-                      ),
-                      searchFieldProps: TextFieldProps(
-                        decoration: InputDecoration(
-                          hintText: "Search Facility",
-                          contentPadding:
-                              const EdgeInsets.only(left: 8, bottom: 4),
 
-                          //This is for Inner DropDown Search Input
-                          enabledBorder: OutlineInputBorder(
-                            borderSide:
-                                BorderSide(color: textColorLight, width: .5),
+                        addTicketProvider.getMachineListFromFacility(data?.machines),
+
+                      },
+                      dropdownDecoratorProps: DropDownDecoratorProps(
+                        dropdownSearchDecoration: InputDecoration(
+                          hintText: "Select Facility",
+                          contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(color: primaryColor, width: 2),
+                            borderRadius: const BorderRadius.all(Radius.circular(8)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: primaryColor, width: .5),
                             borderRadius:
-                                const BorderRadius.all(Radius.circular(8)),
+                            const BorderRadius.vertical(top: Radius.circular(8)),
                           ),
                         ),
                       ),
-                      dropdownSearchDecoration: InputDecoration(
-                        hintText: "Choose Facility",
-                        contentPadding:
-                            const EdgeInsets.only(left: 16, bottom: 8),
-                        border: OutlineInputBorder(
-                          borderSide: BorderSide(color: primaryColor, width: 2),
-                          borderRadius:
-                              const BorderRadius.all(Radius.circular(8)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide:
-                              BorderSide(color: primaryColor, width: .5),
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(8)),
-                        ),
-                      ),
                     ),
+                    // DropdownSearch<ListOwnOemCustomers>(
+                    //   mode: Mode.MENU,
+                    //   showSearchBox: true,
+                    //   items: _customersModel.listOwnOemCustomers,
+                    //   selectedItem: addTicketProvider.facilityData,
+                    //   itemAsString: (ListOwnOemCustomers? u) =>
+                    //       u == null ? "" : u.name.toString(),
+                    //   onChanged: (ListOwnOemCustomers? data) => {
+                    //     addTicketProvider.setFacilityData(data),
+                    //     addTicketProvider.setMachineData(null),
+                    //     provider.setReporterData(null),
+                    //     //_listOwnOemFacilityUsers(data?.sId.toString() ?? ""),
+                    //     addTicketProvider
+                    //         .getMachineListFromFacility(data?.machines),
+                    //   },
+                    //   popupShape: RoundedRectangleBorder(
+                    //     side: BorderSide(color: primaryColor, width: .5),
+                    //     borderRadius: const BorderRadius.vertical(
+                    //         bottom: Radius.circular(8)),
+                    //   ),
+                    //   searchFieldProps: TextFieldProps(
+                    //     decoration: InputDecoration(
+                    //       hintText: "Search Facility",
+                    //       contentPadding:
+                    //           const EdgeInsets.only(left: 8, bottom: 4),
+                    //
+                    //       //This is for Inner DropDown Search Input
+                    //       enabledBorder: OutlineInputBorder(
+                    //         borderSide:
+                    //             BorderSide(color: textColorLight, width: .5),
+                    //         borderRadius:
+                    //             const BorderRadius.all(Radius.circular(8)),
+                    //       ),
+                    //     ),
+                    //   ),
+                    //   dropdownSearchDecoration: InputDecoration(
+                    //     hintText: "Choose Facility",
+                    //     contentPadding:
+                    //         const EdgeInsets.only(left: 16, bottom: 8),
+                    //     border: OutlineInputBorder(
+                    //       borderSide: BorderSide(color: primaryColor, width: 2),
+                    //       borderRadius:
+                    //           const BorderRadius.all(Radius.circular(8)),
+                    //     ),
+                    //     focusedBorder: OutlineInputBorder(
+                    //       borderSide:
+                    //           BorderSide(color: primaryColor, width: .5),
+                    //       borderRadius: const BorderRadius.vertical(
+                    //           top: Radius.circular(8)),
+                    //     ),
+                    //   ),
+                    // ),
                     addTicketProvider.facilityData == null
                         ? Container(
                             margin: const EdgeInsets.only(top: 4),
@@ -220,60 +253,93 @@ class _CreateDocumentScreenState extends State<CreateDocumentScreen> {
                       height: 6,
                     ),
                     DropdownSearch<ListMachines>(
-                      mode: Mode.MENU,
-                      showSearchBox: true,
+                      //mode: Mode.MENU,
+                      //showSearchBox: true,
+                      items: addTicketProvider.machineList ?? [],
                       selectedItem: addTicketProvider.selectedMachineData,
-                      items: addTicketProvider.machineList,
-                      itemAsString: (ListMachines? u) => u == null
-                          ? ""
-                          : "${u.name.toString()} • ${u.serialNumber.toString()}",
+                      itemAsString: (ListMachines? u) =>
+                      u == null ? "" : u.name.toString(),
                       onChanged: (ListMachines? data) => {
                         addTicketProvider.setMachineData(data!),
                         provider.setReporterData(null),
-                        addTicketProvider.setFacilityData(ListOwnOemCustomers(
-                          sId: data.customers![0].sId.toString(),
-                          name: data.customers![0].name.toString(),
-                        )),
-                        //_listOwnOemFacilityUsers(data.customers![0].sId.toString()),
+                        provider.setReporterData(null),
+                        // addTicketProvider.setFacilityData(Customers(
+                        //   sId: data.customer?.sId.toString(),
+                        //   name: data.customer?.name.toString(),
+                        // )),
+                        //_listOwnOemFacilityUsers(data.customer?.sId.toString() ?? ""),
                       },
-                      popupShape: RoundedRectangleBorder(
-                        side: BorderSide(color: primaryColor, width: .5),
-                        borderRadius: const BorderRadius.vertical(
-                            bottom: Radius.circular(8)),
-                      ),
-                      searchFieldProps: TextFieldProps(
-                        decoration: InputDecoration(
-                          hintText: "Search Machine",
-                          contentPadding:
-                              const EdgeInsets.only(left: 8, bottom: 4),
-
-                          //This is for Inner DropDown Search Input
-                          enabledBorder: OutlineInputBorder(
-                            borderSide:
-                                BorderSide(color: textColorLight, width: .5),
+                      dropdownDecoratorProps: DropDownDecoratorProps(
+                        dropdownSearchDecoration: InputDecoration(
+                          hintText: "Select Machine",
+                          contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(color: primaryColor, width: 2),
+                            borderRadius: const BorderRadius.all(Radius.circular(8)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: primaryColor, width: .5),
                             borderRadius:
-                                const BorderRadius.all(Radius.circular(8)),
+                            const BorderRadius.vertical(top: Radius.circular(8)),
                           ),
                         ),
                       ),
-                      dropdownSearchDecoration: InputDecoration(
-                        hintText: "Choose Machine",
-                        contentPadding:
-                            const EdgeInsets.only(left: 16, bottom: 8),
-                        border: OutlineInputBorder(
-                          borderSide: BorderSide(color: primaryColor, width: 2),
-                          borderRadius:
-                              const BorderRadius.all(Radius.circular(8)),
-                        ),
-                        //This is for the main panel, when the dropdown appears.
-                        focusedBorder: OutlineInputBorder(
-                          borderSide:
-                              BorderSide(color: primaryColor, width: .5),
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(8)),
-                        ),
-                      ),
                     ),
+                    // DropdownSearch<ListMachines>(
+                    //   mode: Mode.MENU,
+                    //   showSearchBox: true,
+                    //   selectedItem: addTicketProvider.selectedMachineData,
+                    //   items: addTicketProvider.machineList,
+                    //   itemAsString: (ListMachines? u) => u == null
+                    //       ? ""
+                    //       : "${u.name.toString()} • ${u.serialNumber.toString()}",
+                    //   onChanged: (ListMachines? data) => {
+                    //     addTicketProvider.setMachineData(data!),
+                    //     provider.setReporterData(null),
+                    //     addTicketProvider.setFacilityData(ListOwnOemCustomers(
+                    //       sId: data.customers![0].sId.toString(),
+                    //       name: data.customers![0].name.toString(),
+                    //     )),
+                    //     //_listOwnOemFacilityUsers(data.customers![0].sId.toString()),
+                    //   },
+                    //   popupShape: RoundedRectangleBorder(
+                    //     side: BorderSide(color: primaryColor, width: .5),
+                    //     borderRadius: const BorderRadius.vertical(
+                    //         bottom: Radius.circular(8)),
+                    //   ),
+                    //   searchFieldProps: TextFieldProps(
+                    //     decoration: InputDecoration(
+                    //       hintText: "Search Machine",
+                    //       contentPadding:
+                    //           const EdgeInsets.only(left: 8, bottom: 4),
+                    //
+                    //       //This is for Inner DropDown Search Input
+                    //       enabledBorder: OutlineInputBorder(
+                    //         borderSide:
+                    //             BorderSide(color: textColorLight, width: .5),
+                    //         borderRadius:
+                    //             const BorderRadius.all(Radius.circular(8)),
+                    //       ),
+                    //     ),
+                    //   ),
+                    //   dropdownSearchDecoration: InputDecoration(
+                    //     hintText: "Choose Machine",
+                    //     contentPadding:
+                    //         const EdgeInsets.only(left: 16, bottom: 8),
+                    //     border: OutlineInputBorder(
+                    //       borderSide: BorderSide(color: primaryColor, width: 2),
+                    //       borderRadius:
+                    //           const BorderRadius.all(Radius.circular(8)),
+                    //     ),
+                    //     //This is for the main panel, when the dropdown appears.
+                    //     focusedBorder: OutlineInputBorder(
+                    //       borderSide:
+                    //           BorderSide(color: primaryColor, width: .5),
+                    //       borderRadius: const BorderRadius.vertical(
+                    //           top: Radius.circular(8)),
+                    //     ),
+                    //   ),
+                    // ),
                     addTicketProvider.selectedMachineData == null
                         ? Container(
                             margin: const EdgeInsets.only(top: 4),
@@ -320,6 +386,13 @@ class _CreateDocumentScreenState extends State<CreateDocumentScreen> {
                       },
                       child: Container(
                         width: MediaQuery.of(context).size.width,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.white,
+                          boxShadow: const [
+                            BoxShadow(color: Colors.grey, spreadRadius: 1),
+                          ],
+                        ),
                         child: Padding(
                             padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
                             child: Row(
@@ -334,13 +407,6 @@ class _CreateDocumentScreenState extends State<CreateDocumentScreen> {
                                 SvgPicture.asset("assets/images/btn_down.svg")
                               ],
                             )),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          color: Colors.white,
-                          boxShadow: const [
-                            BoxShadow(color: Colors.grey, spreadRadius: 1),
-                          ],
-                        ),
                       ),
                     ),
                     /* selectedDate == null

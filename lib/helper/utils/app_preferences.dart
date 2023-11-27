@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names
+
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +10,7 @@ class AppPreferences {
   static const String REFRESH_TOKEN = "com.app.makula.REFRESH_TOKEN";
   static const String LOGGED_IN = "com.app.makula.LOGGED_IN";
   static const String USER = "com.app.makula.USER";
+  static const String STATUES = "com.app.makula.STATUES";
   static const String CHAT_CHANNEL_WITH_TOKEN = "com.app.makula.CHAT_CHANNEL_WITH_TOKEN";
   setString(String key, String value) async {
     final prefs = await SharedPreferences.getInstance();

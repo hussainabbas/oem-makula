@@ -1,8 +1,10 @@
 import 'dart:collection';
 
 import 'package:flutter/material.dart';
+import 'package:makula_oem/helper/model/get_status_response.dart';
 import 'package:makula_oem/helper/model/list_open_tickets_model.dart';
 import 'package:makula_oem/helper/model/open_ticket_model.dart';
+import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
@@ -14,9 +16,8 @@ import 'package:pubnub/pubnub.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 class OpenTicketsScreen extends StatefulWidget {
-  const OpenTicketsScreen({Key? key, required PubnubInstance pubnub})
-      : _pubnub = pubnub,
-        super(key: key);
+  const OpenTicketsScreen({super.key, required PubnubInstance pubnub})
+      : _pubnub = pubnub;
 
   final PubnubInstance _pubnub;
 
@@ -28,10 +29,19 @@ class _OpenTicketsScreenState extends State<OpenTicketsScreen> {
   ListOpenTickets listOpenTickets = ListOpenTickets();
   final RefreshController _refreshController =
       RefreshController(initialRefresh: false);
+  final appPreferences = AppPreferences();
+  late StatusData oemStatus;
+
+  //late TicketProvider _tickerProvider;
+
+  _getOEMStatuesValueFromSP() async {
+    oemStatus = StatusData.fromJson(
+        await appPreferences.getData(AppPreferences.STATUES));
+  }
 
   @override
   void initState() {
-    //console("initState");
+    _getOEMStatuesValueFromSP();
     super.initState();
   }
 
@@ -107,6 +117,7 @@ class _OpenTicketsScreenState extends State<OpenTicketsScreen> {
                       itemBuilder: (context, i) {
                         return TicketWidget(
                           item: listOpenTickets.openTicket![i],
+                          statusData: oemStatus,
                         );
                       })
                   : noTicketWidget(context, noOpenTicketLabel)

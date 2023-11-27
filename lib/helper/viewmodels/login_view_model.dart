@@ -6,6 +6,7 @@ import 'package:makula_oem/helper/graphQL/api_result_state.dart';
 import 'package:makula_oem/helper/graphQL/graph_ql_config.dart';
 import 'package:makula_oem/helper/model/get_current_user_details_model.dart';
 import 'package:makula_oem/helper/model/get_new_chat_token.dart';
+import 'package:makula_oem/helper/model/get_status_response.dart';
 import 'package:makula_oem/helper/model/login_mobile_oem_response.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
@@ -89,6 +90,29 @@ class LoginViewModel {
       return ApiResultState.failed(noUserError);
     } else if (result.data != null) {
       var response = NewChatToken.fromJson(result.data!);
+      return ApiResultState.loaded(response);
+    }
+    return ApiResultState.failed(unexpectedError);
+  }
+
+
+
+  Future<ApiResultState> getOEMStatuses() async {
+    GraphQLConfig graphQLConfiguration = GraphQLConfig();
+    GraphQLClient _client = graphQLConfiguration.clientToQuery();
+    QueryResult result = await _client
+        .query(QueryOptions(document: gql(oemStatuses)));
+    if (result.isLoading) {
+      return ApiResultState.loading();
+    }
+    if (result.hasException) {
+      if (result.exception!.graphqlErrors.isNotEmpty) {
+        return ApiResultState.failed(result.exception!.graphqlErrors[0].message);
+      }
+      console("getOEMStatuses: hasException => ${result.exception}");
+      return ApiResultState.failed(noUserError);
+    } else if (result.data != null) {
+      var response = StatusData.fromJson(result.data!);
       return ApiResultState.loaded(response);
     }
     return ApiResultState.failed(unexpectedError);

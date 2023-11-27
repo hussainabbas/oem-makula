@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:makula_oem/helper/model/chat_message_model.dart';
 import 'package:makula_oem/helper/model/get_current_user_details_model.dart';
+import 'package:makula_oem/helper/model/get_status_response.dart';
 import 'package:makula_oem/helper/model/get_ticket_detail_response.dart';
 import 'package:makula_oem/helper/model/list_assignee_response.dart';
 import 'package:makula_oem/helper/model/open_ticket_model.dart';
@@ -22,14 +23,11 @@ import 'package:readmore/readmore.dart';
 import 'package:timelines/timelines.dart';
 
 class TicketOverviewScreen extends StatefulWidget {
-  TicketOverviewScreen(
-      {Key? key, required String channelId, required OpenTicket ticket})
-      : _ticket = ticket,
-        _channelId = channelId,
-        super(key: key);
+  const TicketOverviewScreen(
+      {super.key, required String channelId, required OpenTicket ticket})
+      : _ticket = ticket;
 
-  OpenTicket _ticket;
-  String _channelId;
+  final OpenTicket _ticket;
 
   @override
   _TicketOverviewScreenState createState() => _TicketOverviewScreenState();
@@ -47,11 +45,19 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   MessageProvider? messageProvider;
   ListAssignee responseAssignee = ListAssignee();
   var _status = "";
+  late StatusData oemStatus;
+  //late TicketProvider _tickerProvider;
+
+  _getOEMStatuesValueFromSP() async {
+    oemStatus =
+        StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
+  }
 
   @override
   void initState() {
     _ticketProvider = Provider.of<TicketProvider>(context, listen: false);
     _getValuesFromSP();
+    _getOEMStatuesValueFromSP();
     //_addTextListeners();
     super.initState();
   }
@@ -94,9 +100,9 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
     result.join(
         (failed) => {console("failed => " + failed.exception.toString())},
         (loaded) => {
-              _ticketDetailData = loaded.data,
-              _status =
-                  _ticketDetailData.getOwnOemTicketById?.status.toString() ?? ""
+          _getStatus(loaded.data)
+          //     _ticketDetailData = loaded.data,
+          // _getStatus(_ticketDetailData.getOwnOemTicketById?.status.toString() ?? "")
             },
         (loading) => {
               console("loading => "),
@@ -105,10 +111,16 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
     await getListOwnOemSupportAccounts();
   }
 
+  _getStatus(GetTicketDetailResponse response) async {
+    var statusData = await getStatusById(response.getOwnOemTicketById?.status.toString() ?? "");
+    _status = statusData?.label ?? "";
+    _ticketDetailData = response;
+  }
+
   getListOwnOemSupportAccounts() async {
     var result = await AddTicketViewModel().getListOwnOemSupportAccounts();
     result.join(
-        (failed) => {console("failed => " + failed.exception.toString())},
+        (failed) => {console("failed => ${failed.exception}")},
         (loaded) => {
               responseAssignee = loaded.data,
             },
@@ -187,10 +199,10 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
           ),
         ),
         Opacity(
-          child: line(context),
           opacity: 0.3,
+          child: line(context),
         ),
-        _ticketDetailData.getOwnOemTicketById!.status != "closed"
+        _status != "Closed"
             ? Container(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -455,17 +467,14 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
         ]),
         TableRow(children: [
           TextView(
-            text: _ticketDetailData.getOwnOemTicketById?.status
-                    ?.toString()
-                    .toUpperCase() ??
-                "",
+            text: "Status:",
             fontSize: 13,
             textFontWeight: FontWeight.w700,
             textColor: textColorLight,
           ),
           GestureDetector(
             onTap: () {
-              if (widget._ticket.status != "closed") {
+              if (_status != "Closed") {
                 _closeSnackBars();
                 _showStatusModal(context, _ticketDetailData);
               }
@@ -509,7 +518,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
           ),
           GestureDetector(
             onTap: () {
-              if (widget._ticket.status != "closed") {
+              if (_status != "Closed") {
                 _closeSnackBars();
                 _showAssigneeModal(context, _ticketDetailData);
               }
@@ -542,7 +551,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                       const SizedBox(
                         width: 4,
                       ),
-                      widget._ticket.status != "closed"
+                      _status != "Closed"
                           ? SvgPicture.asset("assets/images/btn_down.svg")
                           : const SizedBox()
                     ],
@@ -597,6 +606,11 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
     }
   }
 
+  _getStatusByName(String status) async {
+    var statusData = await getStatusByName(status);
+    _updateTicketStatus(statusData?.sId ?? "");
+  }
+
   void _showStatusModal(
       BuildContext context, GetTicketDetailResponse response) {
     showModalBottomSheet(
@@ -613,7 +627,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                   onTap: () {
                     Navigator.pop(context);
                     _ticketProvider.setTicketStatus("open");
-                    _updateTicketStatus("open");
+                    _getStatusByName("Open");
                   },
                   title: Container(
                     alignment: Alignment.center,
@@ -631,8 +645,8 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                 ListTile(
                   onTap: () {
                     Navigator.pop(context);
-                    _ticketProvider.setTicketStatus("callback");
-                    _updateTicketStatus("callback");
+                    _ticketProvider.setTicketStatus("Callback");
+                    _getStatusByName("Callback");
                     //_updateTicketStatus(context, response);
                   },
                   title: Container(
@@ -651,8 +665,8 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                 ListTile(
                   onTap: () {
                     Navigator.pop(context);
-                    _ticketProvider.setTicketStatus("visit");
-                    _updateTicketStatus("visit");
+                    _ticketProvider.setTicketStatus("Visit planned");
+                    _getStatusByName("Visit planned");
                     //_updateTicketStatus(context, response);
                   },
                   title: Container(
@@ -671,8 +685,8 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                 ListTile(
                   onTap: () {
                     Navigator.pop(context);
-                    _ticketProvider.setTicketStatus("hold");
-                    _updateTicketStatus("hold");
+                    _ticketProvider.setTicketStatus("On hold");
+                    _getStatusByName("On hold");
                     //_updateTicketStatus(context, response);
                   },
                   title: Container(
@@ -691,8 +705,8 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                 ListTile(
                   onTap: () {
                     Navigator.pop(context);
-                    _ticketProvider.setTicketStatus("waiting");
-                    _updateTicketStatus("waiting");
+                    _ticketProvider.setTicketStatus("Waiting input");
+                    _getStatusByName("Waiting input");
                     //_updateTicketStatus(context, response);
                   },
                   title: Container(
@@ -711,8 +725,8 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                 ListTile(
                   onTap: () {
                     Navigator.pop(context);
-                    _ticketProvider.setTicketStatus("closed");
-                    _updateTicketStatus("closed");
+                    _ticketProvider.setTicketStatus("Closed");
+                    _getStatusByName("Closed");
                     //_updateTicketStatus(context, response);
                   },
                   title: Container(
@@ -756,9 +770,15 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
         _ticketDetailData.getOwnOemTicketById?.sId.toString() ?? "", status);
     //Navigator.pop(context);
     result.join(
-        (failed) => {console("failed => " + failed.exception.toString())},
+        (failed) => {console("failed => ${failed.exception}")},
         (loaded) =>
-            {context.showSuccessSnackBar("Ticket moved to $status tickets!")},
+            {
+              context.showSuccessSnackBar("Ticket moved to $status tickets!"),
+              _getTicketDetailResponse(),
+              setState(() {
+
+              })
+            },
         (loading) => {
               console("loading => "),
             });

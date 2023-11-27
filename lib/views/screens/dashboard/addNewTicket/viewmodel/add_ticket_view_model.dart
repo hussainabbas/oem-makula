@@ -54,7 +54,8 @@ class AddTicketViewModel {
     GraphQLConfig graphQLConfiguration = GraphQLConfig();
     GraphQLClient _client = graphQLConfiguration.clientToQuery();
     QueryResult result =
-        await _client.query(QueryOptions(document: gql(listOwnOemCustomers)));
+        await _client.query(QueryOptions(document: gql(listAllOwnOemCustomers)));
+
     if (result.isLoading) {
       return ApiResultState.loading();
     }
@@ -62,8 +63,9 @@ class AddTicketViewModel {
       console("getListOwnOemCustomers - hasException => ${result.exception}");
       return ApiResultState.failed(unexpectedError);
     } else if (result.data != null) {
-      //console("getTicketTypes => ${result.data!}");
-      var response = OwnOemCustomersModel.fromJson(result.data!);
+      console("getTicketTypes => ${result.data}");
+      var response = AllOwnOemCustomersModel.fromJson(result.data!);
+      console("getListOwnOemCustomers - data => ${response.listAllOwnOemCustomers?.customers?.length}");
       return ApiResultState.loaded(response);
     }
     return ApiResultState.failed(unexpectedError);
@@ -73,12 +75,12 @@ class AddTicketViewModel {
     GraphQLConfig graphQLConfiguration = GraphQLConfig();
     GraphQLClient _client = graphQLConfiguration.clientToQuery();
     QueryResult result =
-        await _client.query(QueryOptions(document: gql(listOwnOemMachines)));
+        await _client.query(QueryOptions(document: gql(listOwnCustomerMachines2)));
     if (result.isLoading) {
       return ApiResultState.loading();
     }
     if (result.hasException) {
-      console("getListOwnOemCustomers - hasException => ${result.exception}");
+      console("getAllMachines - hasException => ${result.exception}");
       return ApiResultState.failed(unexpectedError);
     } else if (result.data != null) {
       var response = GetMachinesResponse.fromJson(result.data!);
