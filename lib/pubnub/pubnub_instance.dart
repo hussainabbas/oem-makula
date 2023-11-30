@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:makula_oem/helper/model/chat_message_model.dart';
 import 'package:makula_oem/helper/model/get_current_user_details_model.dart';
 import 'package:makula_oem/helper/utils/app_preferences.dart';
+import 'package:makula_oem/helper/utils/hive_resources.dart';
+import 'package:makula_oem/helper/utils/offline_resources.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/views/screens/dashboard/dashboard_provider.dart';
 import 'package:pubnub/networking.dart';
@@ -15,7 +17,7 @@ class PubnubInstance {
   PubNub get instance => pubNub;
   Subscription get subscription => _subscription;
   List<ChatMessage> messages = [];
-  final appPreferences = AppPreferences();
+  // final appPreferences = AppPreferences();
 
   setSubscriptionChannel(String channel) {
     _subscription = pubNub.subscribe(channels: {channel}, withPresence: true);
@@ -57,10 +59,11 @@ class PubnubInstance {
 
   setMemberships(List<MembershipMetadataInput> channelMetaDataList) async {
     try {
-      var userValue = CurrentUser.fromJson(await appPreferences.getData(AppPreferences.USER));
+      // var userValue = CurrentUser.fromJson(await appPreferences.getData(AppPreferences.USER));d
+      var userValue = HiveResources.currentUserBox?.get(OfflineResources.CURRENT_USER_RESPONSE);
       await pubNub.objects.setMemberships(channelMetaDataList,
           includeCustomFields: true,
-          uuid: userValue.sId,
+          uuid: userValue?.sId,
           limit: 10000,
           includeChannelCustomFields: true,
           includeCount: true,
@@ -74,12 +77,13 @@ class PubnubInstance {
   }
 
   Future<MembershipsResult> getMemberships() async { 
-    var userValue = CurrentUser
-        .fromJson(await appPreferences.getData(AppPreferences.USER));
+    // var userValue = CurrentUser
+    //     .fromJson(await appPreferences.getData(AppPreferences.USER));
+    var userValue = HiveResources.currentUserBox?.get(OfflineResources.CURRENT_USER_RESPONSE);
     var memberships = await pubNub.objects.getMemberships(
         limit: 10000,
         includeCount: true,
-        uuid: userValue.sId,
+        uuid: userValue?.sId,
         includeChannelFields: true,
         includeChannelCustomFields: true,
         includeCustomFields: true); 

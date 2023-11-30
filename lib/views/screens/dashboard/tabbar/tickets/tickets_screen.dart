@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
+import 'package:makula_oem/helper/utils/extension_functions.dart';
 import 'package:makula_oem/helper/utils/routes.dart';
+import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/helper/views/sliver_app_bar_delegate.dart';
 import 'package:makula_oem/pubnub/pubnub_instance.dart';
 import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/closed_tickets_screen.dart';
@@ -38,8 +40,19 @@ class _TicketsScreenState extends State<TicketsScreen>
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         backgroundColor: primaryColor,
-        onPressed: () {
-          Navigator.pushNamed(context, addTicketStep0ScreenRoute);
+        onPressed: () async {
+          var connected = await isConnectedToNetwork();
+          if (connected) {
+            if (context.mounted) {
+              Navigator.pushNamed(context, addTicketStep0ScreenRoute);
+            }
+          } else {
+            if (context.mounted) {
+              context.showErrorSnackBar(
+                  "Couldn't reach the server. Please check your internet connection");
+            }
+          }
+
         },
         child: const Icon(
           Icons.add,

@@ -1,5 +1,5 @@
-import 'package:badges/badges.dart';
 import 'package:badges/badges.dart' as badges;
+import 'package:badges/badges.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:makula_oem/helper/model/get_status_response.dart';
@@ -15,42 +15,59 @@ import 'package:makula_oem/views/widgets/makula_text_view.dart';
 import 'package:provider/provider.dart';
 
 class TicketWidget extends StatelessWidget {
-  const TicketWidget({super.key, required OpenTicket item, required this.statusData}) : _item = item;
+  const TicketWidget(
+      {super.key, required OpenTicket? item, required this.statusData})
+      : _item = item;
 
-  final OpenTicket _item;
+  final OpenTicket? _item;
   final StatusData? statusData;
+
   // BuildContext? mContext;
 
   @override
   Widget build(BuildContext context) {
-    var isUnread = _item.channelsWithCount > 0;
-    Statuses? foundStatus = statusData?.listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
-          (status) => status.sId == _item.status,
+    var isUnread = _item!.channelsWithCount > 0;
+    Statuses? foundStatus =
+        statusData?.listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
+      (status) => status.sId == _item?.status,
     );
     var status = foundStatus?.label ?? "";
     var statusColor = foundStatus?.color ?? "";
-    console("ticketType => ${_item.ticketType}");
-    var ticketType = _item.ticketType ?? ticketTypeServiceRequest;
+    console("ticketType => ${_item?.ticketType}");
+    var ticketType = _item?.ticketType ?? ticketTypeServiceRequest;
     return isUnread
         ? _unreadTicket(context, isUnread, status, ticketType, statusColor)
-        : _readTicket(context, isUnread, status, ticketType,  statusColor);
+        : _readTicket(context, isUnread, status, ticketType, statusColor);
   }
 
-  Widget _itemWidget(
-      BuildContext context, bool isUnread, String status, String ticketType,String statusColor) {
+  Widget _itemWidget(BuildContext context, bool isUnread, String status,
+      String ticketType, String statusColor) {
     return GestureDetector(
-      onTap: () {
-        context.read<TicketProvider>().setTicketItemDetails(_item);
-        context
-            .read<DashboardProvider>()
-            .setChannelId(_item.ticketChatChannels![0].toString());
-        Navigator.of(context).push(
-          MaterialPageRoute(
-              builder: (context) => TicketDetailScreen(
-                    channelId: _item.ticketChatChannels![0].toString(),
-                    ticket: _item,
-                  )),
-        );
+      onTap: () async {
+        var isConnected = await isConnectedToNetwork();
+        if (isConnected) {
+          if (context.mounted) {
+            context.read<TicketProvider>().setTicketItemDetails(_item!);
+            context
+                .read<DashboardProvider>()
+                .setChannelId(_item?.ticketChatChannels![0].toString() ?? "");
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                  builder: (context) =>
+                      TicketDetailScreen(
+                        channelId: _item?.ticketChatChannels![0].toString() ??
+                            "",
+                        ticket: _item!,
+                      )),
+
+            );
+          }
+        } else {
+          if (context.mounted) {
+            context.showErrorSnackBar(
+                "Couldn't reach the server. Please check your internet connection");
+          }
+        }
 
         // Navigator.of(context).pushNamed(ticketDetailScreenRoute);
       },
@@ -78,7 +95,7 @@ class TicketWidget extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextView(
-                        text: _item.machine?.name.toString().trim() ?? "",
+                        text: _item?.machine?.name.toString().trim() ?? "",
                         textColor: primaryColor,
                         isEllipsis: true,
                         textFontWeight: FontWeight.w500,
@@ -87,7 +104,7 @@ class TicketWidget extends StatelessWidget {
                       height: 2,
                     ),
                     TextView(
-                        text: _item.title.toString().trim(),
+                        text: _item?.title.toString().trim() ?? "",
                         textColor: textColorDark,
                         textFontWeight: FontWeight.w600,
                         isEllipsis: true,
@@ -97,7 +114,7 @@ class TicketWidget extends StatelessWidget {
                     ),
                     TextView(
                         text:
-                            "${_item.createdAt!.formatDate(dateFormatYYYMMddTHHmmssSSSZ, dateFormatYYYYddMM)} •  ${_item.ticketId.toString()}",
+                            "${_item?.createdAt!.formatDate(dateFormatYYYMMddTHHmmssSSSZ, dateFormatYYYYddMM)} •  ${_item?.ticketId.toString()}",
                         textColor: textColorLight,
                         textFontWeight: FontWeight.w600,
                         fontSize: 10),
@@ -135,8 +152,11 @@ class TicketWidget extends StatelessWidget {
                         width: 6,
                       ),
                       TextView(
-                          text: _item.assignee != null
-                              ? _item.assignee!.name.toString().toUpperCase()
+                          text: _item?.assignee != null
+                              ? _item?.assignee?.name
+                                      ?.toString()
+                                      .toUpperCase() ??
+                                  ""
                               : notYetAssigned.toUpperCase(),
                           textColor: textColorLight,
                           textFontWeight: FontWeight.w600,
@@ -164,17 +184,17 @@ class TicketWidget extends StatelessWidget {
     );
   }
 
-  Widget _unreadTicket(
-      BuildContext context, bool isUnread, String status, String ticketType, String statusColor) {
+  Widget _unreadTicket(BuildContext context, bool isUnread, String status,
+      String ticketType, String statusColor) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: const Color(0xffffffff),
-      child: _itemWidget(context, isUnread, status, ticketType,statusColor),
+      child: _itemWidget(context, isUnread, status, ticketType, statusColor),
     );
   }
 
-  Widget _readTicket(
-      BuildContext context, bool isUnread, String status, String ticketType, String statusColor) {
+  Widget _readTicket(BuildContext context, bool isUnread, String status,
+      String ticketType, String statusColor) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -189,7 +209,7 @@ class TicketWidget extends StatelessWidget {
     return badges.Badge(
       position: BadgePosition.bottomStart(bottom: 2, start: -2),
       badgeContent: Text(
-        _item.channelsWithCount.toString(),
+        _item?.channelsWithCount.toString() ?? "",
         style: const TextStyle(
             color: Colors.white,
             fontFamily: 'Manrope',

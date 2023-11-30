@@ -1,10 +1,22 @@
+import 'package:hive/hive.dart';
+
+part 'facilities.g.dart';
+
+@HiveType(typeId: 9)
 class Facility {
+  @HiveField(0)
   String? sId;
+  @HiveField(1)
   String? name;
+  @HiveField(2)
   String? urlOemFacility;
+  @HiveField(3)
   int? totalMachines;
+  @HiveField(4)
   int? totalOpenTickets;
+  @HiveField(5)
   bool? isQRCodeEnabled;
+  @HiveField(6)
   String? generalAccessUrl;
 
   Facility(

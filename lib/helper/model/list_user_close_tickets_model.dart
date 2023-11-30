@@ -1,8 +1,13 @@
 
 
+import 'package:hive/hive.dart';
 import 'package:makula_oem/helper/model/open_ticket_model.dart';
 
+part 'list_user_close_tickets_model.g.dart';
+
+@HiveType(typeId: 11)
 class ListUserCloseTickets {
+  @HiveField(0)
   List<OpenTicket>? closeTickets;
 
   ListUserCloseTickets({this.closeTickets});

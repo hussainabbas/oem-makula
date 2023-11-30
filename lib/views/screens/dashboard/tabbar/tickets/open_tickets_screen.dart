@@ -7,6 +7,7 @@ import 'package:makula_oem/helper/model/open_ticket_model.dart';
 import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
+import 'package:makula_oem/helper/utils/hive_resources.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/helper/viewmodels/tickets_view_model.dart';
 import 'package:makula_oem/pubnub/pubnub_instance.dart';
@@ -14,6 +15,8 @@ import 'package:makula_oem/views/widgets/makula_text_view.dart';
 import 'package:makula_oem/views/widgets/makula_ticket_widget.dart';
 import 'package:pubnub/pubnub.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
+
+import '../../../../../helper/utils/offline_resources.dart';
 
 class OpenTicketsScreen extends StatefulWidget {
   const OpenTicketsScreen({super.key, required PubnubInstance pubnub})
@@ -29,14 +32,15 @@ class _OpenTicketsScreenState extends State<OpenTicketsScreen> {
   ListOpenTickets listOpenTickets = ListOpenTickets();
   final RefreshController _refreshController =
       RefreshController(initialRefresh: false);
-  final appPreferences = AppPreferences();
+  // final appPreferences = AppPreferences();
   late StatusData oemStatus;
 
   //late TicketProvider _tickerProvider;
 
   _getOEMStatuesValueFromSP() async {
-    oemStatus = StatusData.fromJson(
-        await appPreferences.getData(AppPreferences.STATUES));
+    // oemStatus = StatusData.fromJson(
+    //     await appPreferences.getData(AppPreferences.STATUES));
+    oemStatus = HiveResources.oemStatusBox!.get(OfflineResources.OEM_STATUS_RESPONSE)!;
   }
 
   @override
@@ -127,17 +131,24 @@ class _OpenTicketsScreenState extends State<OpenTicketsScreen> {
   }
 
   _getFacilityOpenTickets() async {
-    //console("_getFacilityOpenTickets");
-    var result = await TicketViewModel().getListOwnOemOpenTickets();
-    result.join(
-        (failed) => {console("failed => " + failed.exception.toString())},
-        (loaded) => {_facilityDetails(loaded.data)},
-        (loading) => {
-              console("loading => "),
-            });
+    var isConnected = await isConnectedToNetwork();
+    if (isConnected) {
+      var result = await TicketViewModel().getListOwnOemOpenTickets();
+      result.join(
+              (failed) => {console("failed => ${failed.exception}")},
+              (loaded) => {_facilityDetails(loaded.data)},
+              (loading) => {
+            console("loading => "),
+          });
+    } else {
+      listOpenTickets = HiveResources.listOpenTicketBox!.get(OfflineResources.LIST_OPEN_TICKET_RESPONSE)!;
+      console("listOpenTickets");
+    }
+
   }
 
   _facilityDetails(ListOpenTickets data) async {
+    HiveResources.listOpenTicketBox?.put(OfflineResources.LIST_OPEN_TICKET_RESPONSE, data);
     listOpenTickets = data;
     //await _getMemberShipResults(data);
   }

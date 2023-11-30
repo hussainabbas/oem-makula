@@ -1,5 +1,14 @@
+
+import 'package:hive/hive.dart';
+
+
+part 'login_mobile_oem_response.g.dart';
+
+@HiveType(typeId: 0)
 class LoginMobile {
+  @HiveField(0)
   String? token;
+  @HiveField(1)
   String? refreshToken;
 
   LoginMobile({this.token , this.refreshToken});

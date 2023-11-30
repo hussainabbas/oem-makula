@@ -1,24 +1,11 @@
-class GetStatusResponse {
-  StatusData? statusData;
 
-  GetStatusResponse({this.statusData});
+import 'package:hive/hive.dart';
 
-  GetStatusResponse.fromJson(Map<String, dynamic> json) {
-    statusData = json['StatusData'] != null
-        ? StatusData.fromJson(json['StatusData'])
-        : null;
-  }
+part 'get_status_response.g.dart';
 
-  Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = <String, dynamic>{};
-    if (statusData != null) {
-      data['StatusData'] = statusData!.toJson();
-    }
-    return data;
-  }
-}
-
+@HiveType(typeId: 3)
 class StatusData {
+  @HiveField(0)
   List<ListOwnOemOpenTickets>? listOwnOemOpenTickets;
 
   StatusData({this.listOwnOemOpenTickets});
@@ -42,7 +29,9 @@ class StatusData {
   }
 }
 
+@HiveType(typeId: 4)
 class ListOwnOemOpenTickets {
+  @HiveField(0)
   OemStatus? oem;
 
   ListOwnOemOpenTickets({this.oem});
@@ -59,8 +48,9 @@ class ListOwnOemOpenTickets {
     return data;
   }
 }
-
+@HiveType(typeId: 5)
 class OemStatus {
+  @HiveField(0)
   List<Statuses>? statuses;
 
   OemStatus({this.statuses});
@@ -83,9 +73,13 @@ class OemStatus {
   }
 }
 
+@HiveType(typeId: 6)
 class Statuses {
+  @HiveField(0)
   String? sId;
+  @HiveField(1)
   String? label;
+  @HiveField(2)
   String? color;
 
   Statuses({this.sId, this.label, this.color});

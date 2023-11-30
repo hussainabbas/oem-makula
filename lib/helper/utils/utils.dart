@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -11,6 +12,8 @@ import 'package:makula_oem/helper/model/get_status_response.dart';
 import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
+import 'package:makula_oem/helper/utils/hive_resources.dart';
+import 'package:makula_oem/helper/utils/offline_resources.dart';
 
 extension Keyboard on BuildContext {
   void hideKeyboard() {
@@ -114,12 +117,12 @@ Color getContainerFrontColor2(String status) {
 }
 
 Future<Statuses?> getStatusById(String desiredStatusId) async {
-  var appPreferences = AppPreferences();
-  var statusData =
-  StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
+  // var appPreferences = AppPreferences();
+  var statusData =  HiveResources.oemStatusBox?.get(OfflineResources.OEM_STATUS_RESPONSE);
+  //var statusData = StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
 
-  console("getStatusById statusData => ${statusData.listOwnOemOpenTickets?[0].oem?.statuses?.length}");
-  Statuses? foundStatus = statusData.listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
+  console("getStatusById statusData => ${statusData?.listOwnOemOpenTickets?[0].oem?.statuses?.length}");
+  Statuses? foundStatus = statusData?.listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
         (status) => status.sId == desiredStatusId,
   );
 
@@ -130,12 +133,11 @@ Future<Statuses?> getStatusById(String desiredStatusId) async {
 
 
 Future<Statuses?> getStatusByName(String desiredStatusName) async {
-  var appPreferences = AppPreferences();
-  var statusData =
-  StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
-
-  console("getStatusByName statusData => ${statusData.listOwnOemOpenTickets?[0].oem?.statuses?.length}");
-  Statuses? foundStatus = statusData.listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
+  // var appPreferences = AppPreferences();
+  //var statusData = StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
+  var statusData =  HiveResources.oemStatusBox?.get(OfflineResources.OEM_STATUS_RESPONSE);
+  console("getStatusByName statusData => ${statusData?.listOwnOemOpenTickets?[0].oem?.statuses?.length}");
+  Statuses? foundStatus = statusData?.listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
         (status) => status.label == desiredStatusName,
   );
 
@@ -402,4 +404,13 @@ Uint8List decodeBase64(String base64) {
       .replaceAll("data:image/png;base64,", "")
       .replaceAll("data:image/jpg;base64,", "");
   return const Base64Codec().decode(image);
+}
+
+Future<bool> isConnectedToNetwork() async {
+  var connectivityResult = await (Connectivity().checkConnectivity());
+  if (connectivityResult == ConnectivityResult.none) {
+    return false;
+  } else {
+    return true;
+  }
 }

@@ -3,14 +3,19 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:hive/hive.dart';
 import 'package:makula_oem/helper/graphQL/graph_ql_config.dart';
 import 'package:makula_oem/helper/model/get_current_user_details_model.dart';
 import 'package:makula_oem/helper/model/get_new_chat_token.dart';
 import 'package:makula_oem/helper/model/get_status_response.dart';
 import 'package:makula_oem/helper/utils/app_preferences.dart';
+import 'package:makula_oem/helper/utils/hive_resources.dart';
+import 'package:makula_oem/helper/utils/offline_resources.dart';
 import 'package:makula_oem/helper/utils/routes.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/helper/viewmodels/login_view_model.dart';
+
+import '../../../helper/model/login_mobile_oem_response.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -21,31 +26,70 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   final appPreferences = AppPreferences();
-  var _token = "";
-  var _refreshToken = "";
+  // var _token = "";
+  // var _refreshToken = "";
+  // final loginBox = Hive.box<LoginMobile>(OfflineResources.LOGIN_TOKEN_BOX);
+  // final currentUserBox =
+  //     Hive.box<CurrentUser>(OfflineResources.CURRENT_USER_BOX);
+  // final oemStatusBox = Hive.box<StatusData>(OfflineResources.OEM_STATUS_BOX);
 
   @override
   void initState() {
     _getDetailsFromAppPreferences();
-
     super.initState();
   }
 
   _getDetailsFromAppPreferences() async {
-    var isLoggedIn =
-        await appPreferences.getBool(AppPreferences.LOGGED_IN) ?? false;
-    if (isLoggedIn) {
-      _token = await appPreferences.getString(AppPreferences.TOKEN) ?? "";
-      _refreshToken =
-          await appPreferences.getString(AppPreferences.REFRESH_TOKEN) ?? "";
-      GraphQLConfig.token = _token;
-      GraphQLConfig.refreshToken = _refreshToken;
+    var loggedInResponse = HiveResources.loginBox?.get(OfflineResources.LOGIN_TOKEN_RESPONSE);
+    if (loggedInResponse?.token != null) {
+      GraphQLConfig.token = loggedInResponse?.token ?? "";
+      GraphQLConfig.refreshToken = loggedInResponse?.refreshToken ?? "";
 
-      _getCurrentUserDetails();
+      console("token => ${loggedInResponse?.token}");
+      console("refreshToken => ${loggedInResponse?.refreshToken}");
+      var isConnected = await isConnectedToNetwork();
+      if (isConnected) {
+        _getCurrentUserDetails();
+      } else {
+        console("isConnected => $isConnected");
+        if (context.mounted) {
+          Timer(
+              const Duration(seconds: 3),
+                  () =>
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                      dashboardScreenRoute, (Route<dynamic> route) => false));
+        }
+      }
     } else {
       Timer(const Duration(seconds: 3),
-          () => {Navigator.pushReplacementNamed(context, loginScreenRoute)});
+          () => Navigator.pushReplacementNamed(context, loginScreenRoute));
     }
+
+
+    // var isLoggedIn =
+    //     await appPreferences.getBool(AppPreferences.LOGGED_IN) ?? false;
+    // if (isLoggedIn) {
+    //   _token = await appPreferences.getString(AppPreferences.TOKEN) ?? "";
+    //   _refreshToken =
+    //       await appPreferences.getString(AppPreferences.REFRESH_TOKEN) ?? "";
+    //   GraphQLConfig.token = _token;
+    //   GraphQLConfig.refreshToken = _refreshToken;
+    //   var isConnected = await isConnectedToNetwork();
+    //   if (isConnected) {
+    //     _getCurrentUserDetails();
+    //   } else {
+    //     console("isConnected => $isConnected");
+    //     if (context.mounted) {
+    //       Timer(
+    //           const Duration(seconds: 3),
+    //           () => Navigator.of(context).pushNamedAndRemoveUntil(
+    //               dashboardScreenRoute, (Route<dynamic> route) => false));
+    //     }
+    //   }
+    // } else {
+    //   Timer(const Duration(seconds: 3),
+    //       () => Navigator.pushReplacementNamed(context, loginScreenRoute));
+    // }
   }
 
   _getCurrentUserDetails() async {
@@ -87,35 +131,38 @@ class _SplashScreenState extends State<SplashScreen> {
 
   _saveUserDetailsInAppPreferences(CurrentUser user, NewChatToken token) async {
     user.chatToken = token.getNewChatToken.toString();
-    await appPreferences.setData(AppPreferences.USER, user);
+    HiveResources.currentUserBox?.put(OfflineResources.CURRENT_USER_RESPONSE, user);
+    // await appPreferences.setData(AppPreferences.USER, user);
     await _getOEMStatues();
-
   }
 
   _getOEMStatues() async {
     try {
       var result = await LoginViewModel().getOEMStatuses();
       result.join(
-              (failed) => {
-            Navigator.pushReplacementNamed(context, loginScreenRoute),
-            console("failed => ${failed.exception}")
-          },
-              (loaded) => {
-            // console("loaded => " + loaded.data)
-            _saveOEMStatues(loaded.data)
-          },
-              (loading) => {
-            console("loading => "),
-          });
+          (failed) => {
+                Navigator.pushReplacementNamed(context, loginScreenRoute),
+                console("failed => ${failed.exception}")
+              },
+          (loaded) => {
+                // console("loaded => " + loaded.data)
+                _saveOEMStatues(loaded.data)
+              },
+          (loading) => {
+                console("loading => "),
+              });
     } catch (e) {
       console("_getOEMStatues = $e");
-      if (context.mounted) Navigator.pushReplacementNamed(context, loginScreenRoute);
+      if (context.mounted) {
+        Navigator.pushReplacementNamed(context, loginScreenRoute);
+      }
     }
   }
 
   _saveOEMStatues(StatusData response) async {
     console("_saveOEMStatues => ${response.listOwnOemOpenTickets?.length}");
-    await appPreferences.setData(AppPreferences.STATUES, response);
+    HiveResources.oemStatusBox?.put(OfflineResources.OEM_STATUS_RESPONSE, response);
+    //await appPreferences.setData(AppPreferences.STATUES, response);
     if (context.mounted) {
       Navigator.of(context).pushNamedAndRemoveUntil(
           dashboardScreenRoute, (Route<dynamic> route) => false);

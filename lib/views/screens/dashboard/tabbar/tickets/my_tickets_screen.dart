@@ -1,6 +1,7 @@
 import 'dart:collection';
 
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import 'package:makula_oem/helper/model/get_status_response.dart';
 import 'package:makula_oem/helper/model/list_user_close_tickets_model.dart';
 import 'package:makula_oem/helper/model/list_user_open_tickets_model.dart';
@@ -8,6 +9,7 @@ import 'package:makula_oem/helper/model/open_ticket_model.dart';
 import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
+import 'package:makula_oem/helper/utils/offline_resources.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/helper/viewmodels/tickets_view_model.dart';
 import 'package:makula_oem/pubnub/pubnub_instance.dart';
@@ -17,6 +19,8 @@ import 'package:makula_oem/views/widgets/makula_ticket_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:pubnub/pubnub.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
+
+import '../../../../../helper/utils/hive_resources.dart';
 
 class MyTicketsScreen extends StatefulWidget {
   const MyTicketsScreen({super.key, required PubnubInstance pubnub})
@@ -29,17 +33,18 @@ class MyTicketsScreen extends StatefulWidget {
 }
 
 class _MyTicketsScreenState extends State<MyTicketsScreen> {
-  ListUserOpenTickets _listOpenTickets = ListUserOpenTickets();
-  ListUserCloseTickets _listUserCloseTickets = ListUserCloseTickets();
+  ListUserOpenTickets? _listOpenTickets = ListUserOpenTickets();
+  ListUserCloseTickets? _listUserCloseTickets = ListUserCloseTickets();
   final RefreshController _refreshController =
       RefreshController(initialRefresh: false);
   final appPreferences = AppPreferences();
-  late StatusData oemStatus;
+  late StatusData? oemStatus;
   //late TicketProvider _tickerProvider;
 
   _getOEMStatuesValueFromSP() async {
-    oemStatus =
-        StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
+    //oemStatus =
+      //  StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
+    oemStatus =  HiveResources.oemStatusBox?.get(OfflineResources.OEM_STATUS_RESPONSE);
   }
 
   @override
@@ -80,7 +85,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
               return const Center(child: Text(unexpectedError));
             } else {
               return FutureBuilder(
-                  future: _getMemberShipResults(_listOpenTickets),
+                  future: _getMemberShipResults(_listOpenTickets!),
                   builder: (context, projectSnap) {
                     if (projectSnap.connectionState ==
                         ConnectionState.waiting) {
@@ -88,7 +93,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                         child: CircularProgressIndicator.adaptive(),
                       );
                     } else {
-                      return _listOpenTickets.openTicket != null
+                      return _listOpenTickets?.openTicket != null
                           ? _myTicketScreenContent()
                           : noTicketWidget(context, noOpenTicketLabel);
                     }
@@ -110,20 +115,20 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                 padding: const EdgeInsets.fromLTRB(8.0, 8, 0, 0),
                 child: TextView(
                     text:
-                        "$openTicketsLabel (${_listOpenTickets.openTicket!.length})",
+                        "$openTicketsLabel (${_listOpenTickets?.openTicket!.length})",
                     textColor: textColorLight,
                     textFontWeight: FontWeight.w500,
                     fontSize: 12),
               ),
-              _listOpenTickets.openTicket!.isNotEmpty
+              _listOpenTickets?.openTicket?.isNotEmpty == true
                   ? ListView.builder(
                       padding: const EdgeInsets.all(6),
-                      itemCount: _listOpenTickets.openTicket!.length,
+                      itemCount: _listOpenTickets?.openTicket!.length,
                       physics: const NeverScrollableScrollPhysics(),
                       shrinkWrap: true,
                       itemBuilder: (context, i) {
                         return TicketWidget(
-                          item: _listOpenTickets.openTicket![i],
+                          item: _listOpenTickets?.openTicket![i],
                           statusData: oemStatus,
                         );
                       })
@@ -154,7 +159,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                     child: ListTile(
                       tileColor: containerColorUnFocused,
                       title: Text(
-                        "Closed Tickets (${_listUserCloseTickets.closeTickets == null ? 0 : _listUserCloseTickets.closeTickets?.length})",
+                        "Closed Tickets (${_listUserCloseTickets?.closeTickets == null ? 0 : _listUserCloseTickets?.closeTickets?.length})",
                         style: TextStyle(
                             fontSize: 12,
                             color: textColorDark,
@@ -178,16 +183,16 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                     height: 16,
                   ),
                   provider.isClosedShowing
-                      ? _listUserCloseTickets.closeTickets != null
+                      ? _listUserCloseTickets?.closeTickets != null
                           ? ListView.builder(
                               padding: EdgeInsets.zero,
                               itemCount:
-                                  _listUserCloseTickets.closeTickets?.length,
+                                  _listUserCloseTickets?.closeTickets?.length,
                               physics: const NeverScrollableScrollPhysics(),
                               shrinkWrap: true,
                               itemBuilder: (context, i) {
                                 return TicketWidget(
-                                  item: _listUserCloseTickets.closeTickets![i],
+                                  item: _listUserCloseTickets?.closeTickets![i],
                                   statusData: oemStatus,
                                 );
                               })
@@ -204,33 +209,47 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   }
 
   _getOpenTickets() async {
-    console("_getOpenTickets");
-    var result = await TicketViewModel().getListOwnOemUserOpenTickets();
-    result.join(
-        (failed) => {console("failed => ${failed.exception}")},
-        (loaded) => {_openTicketDetails(loaded.data)},
-        (loading) => {
-              console("loading => "),
-            });
-    await _getCloseTickets();
+    var isConnected = await isConnectedToNetwork();
+    if (isConnected) {
+      var result = await TicketViewModel().getListOwnOemUserOpenTickets();
+      result.join(
+              (failed) => {console("failed => ${failed.exception}")},
+              (loaded) => {_openTicketDetails(loaded.data)},
+              (loading) =>
+          {
+            console("loading => "),
+          });
+      await _getCloseTickets();
+    } else {
+      _listOpenTickets = HiveResources.listUserOpenTicketsBox?.get(OfflineResources.LIST_USER_OPEN_TICKETS_RESPONSE);
+      console("_openTicketDetails => ${_listOpenTickets?.openTicket?[0].assignee?.name}");
+    }
   }
 
   _getCloseTickets() async {
-    console("_getCloseTickets");
-    var result = await TicketViewModel().getListOwnOemUserCloseTickets();
-    result.join(
-        (failed) => {console("failed => ${failed.exception}")},
-        (loaded) => {_closeTicketDetails(loaded.data)},
-        (loading) => {
-              console("loading => "),
-            });
+    var isConnected = await isConnectedToNetwork();
+    if (isConnected) {
+      var result = await TicketViewModel().getListOwnOemUserCloseTickets();
+      result.join(
+              (failed) => {console("failed => ${failed.exception}")},
+              (loaded) => {_closeTicketDetails(loaded.data)},
+              (loading) =>
+          {
+            console("loading => "),
+          });
+    } else {
+      _listUserCloseTickets = HiveResources.listUserCloseTicketsBox?.get(OfflineResources.LIST_USER_CLOSE_TICKETS_RESPONSE);
+      console("_openTicketDetails => ${_listOpenTickets?.openTicket?[0].assignee?.name}");
+    }
   }
 
   _openTicketDetails(ListUserOpenTickets data) async {
+    HiveResources.listUserOpenTicketsBox?.put(OfflineResources.LIST_USER_OPEN_TICKETS_RESPONSE, data);
     _listOpenTickets = data;
   }
 
   _closeTicketDetails(ListUserCloseTickets data) async {
+    HiveResources.listUserCloseTicketsBox?.put(OfflineResources.LIST_USER_CLOSE_TICKETS_RESPONSE, data);
     _listUserCloseTickets = data;
   }
 

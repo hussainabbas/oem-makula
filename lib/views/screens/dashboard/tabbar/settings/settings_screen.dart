@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
+import 'package:makula_oem/helper/utils/hive_resources.dart';
 import 'package:makula_oem/helper/utils/routes.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/pubnub/pubnub_instance.dart';
@@ -21,7 +22,7 @@ class SettingScreen extends StatefulWidget {
 }
 
 class _SettingScreenState extends State<SettingScreen> {
-  final _appPreferences = AppPreferences();
+  // final _appPreferences = AppPreferences();
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +118,8 @@ class _SettingScreenState extends State<SettingScreen> {
           textFontWeight: FontWeight.w700,
           fontSize: 14),
       onPressed: () {
-        _appPreferences.clear();
+        HiveResources.flush();
+        //_appPreferences.clear();
         Navigator.of(context).pushNamedAndRemoveUntil(
             loginScreenRoute, (Route<dynamic> route) => false);
       },
@@ -176,7 +178,7 @@ class _SettingScreenState extends State<SettingScreen> {
                     child: SvgPicture.asset("assets/images/ic_small_line.svg")),
                 ListTile(
                   onTap: () {
-                    _appPreferences.clear();
+                    HiveResources.flush();
                     Navigator.of(context).pushNamedAndRemoveUntil(
                         loginScreenRoute, (Route<dynamic> route) => false);
                   },

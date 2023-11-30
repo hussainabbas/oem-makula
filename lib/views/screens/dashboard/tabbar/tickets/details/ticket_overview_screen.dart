@@ -11,6 +11,8 @@ import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
 import 'package:makula_oem/helper/utils/extension_functions.dart';
+import 'package:makula_oem/helper/utils/hive_resources.dart';
+import 'package:makula_oem/helper/utils/offline_resources.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/helper/viewmodels/tickets_view_model.dart';
 import 'package:makula_oem/pubnub/message_provider.dart';
@@ -37,7 +39,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   //OpenTicket _ticket = OpenTicket();
   GetTicketDetailResponse _ticketDetailData = GetTicketDetailResponse();
   CurrentUser _currentUser = CurrentUser();
-  final appPreferences = AppPreferences();
+  // final appPreferences = AppPreferences();
   final TextEditingController _messageController = TextEditingController();
   final FocusNode _sendFieldFocus = FocusNode();
   late TicketProvider _ticketProvider;
@@ -45,12 +47,13 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   MessageProvider? messageProvider;
   ListAssignee responseAssignee = ListAssignee();
   var _status = "";
-  late StatusData oemStatus;
+  late StatusData? oemStatus;
   //late TicketProvider _tickerProvider;
 
   _getOEMStatuesValueFromSP() async {
-    oemStatus =
-        StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
+    // oemStatus =
+    //     StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
+    oemStatus =  HiveResources.oemStatusBox?.get(OfflineResources.OEM_STATUS_RESPONSE);
   }
 
   @override
@@ -63,8 +66,10 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   }
 
   void _getValuesFromSP() async {
-    _currentUser =
-        CurrentUser.fromJson(await appPreferences.getData(AppPreferences.USER));
+    // _currentUser =
+    //     CurrentUser.fromJson(await appPreferences.getData(AppPreferences.USER));
+
+    _currentUser =  HiveResources.currentUserBox!.get(OfflineResources.CURRENT_USER_RESPONSE)!;
     console("message => ${_currentUser.name}");
   }
 

@@ -59,6 +59,7 @@ class _TemplateTabScreenState extends State<TemplateTabScreen> {
                     const SizedBox(
                       height: 10,
                     ),
+                    if (_listTemplateResponse.listOwnOemTemplates != null)
                     ListView.builder(
                         padding: const EdgeInsets.all(0),
                         itemCount:

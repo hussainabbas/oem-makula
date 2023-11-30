@@ -5,6 +5,8 @@ import 'package:makula_oem/helper/model/list_close_tickets_model.dart';
 import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
+import 'package:makula_oem/helper/utils/hive_resources.dart';
+import 'package:makula_oem/helper/utils/offline_resources.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/helper/viewmodels/tickets_view_model.dart';
 import 'package:makula_oem/pubnub/pubnub_instance.dart';
@@ -25,16 +27,15 @@ class ClosedTicketsScreen extends StatefulWidget {
 class _ClosedTicketsScreenState extends State<ClosedTicketsScreen> {
   var itemSize = 1;
 
-  ListCloseTickets _listCloseTickets = ListCloseTickets();
+  ListCloseTickets? _listCloseTickets = ListCloseTickets();
   final RefreshController _refreshController =
       RefreshController(initialRefresh: false);
-  final appPreferences = AppPreferences();
-  late StatusData oemStatus;
+  // final appPreferences = AppPreferences();
+  late StatusData? oemStatus;
   //late TicketProvider _tickerProvider;
 
   _getOEMStatuesValueFromSP() async {
-    oemStatus =
-        StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
+    oemStatus =  HiveResources.oemStatusBox?.get(OfflineResources.OEM_STATUS_RESPONSE);
   }
 
 
@@ -72,7 +73,7 @@ class _ClosedTicketsScreenState extends State<ClosedTicketsScreen> {
             if (projectSnap.hasError) {
               return const Center(child: Text(unexpectedError));
             } else {
-              return _listCloseTickets.closeTickets != null
+              return _listCloseTickets?.closeTickets != null
                   ? _closeTicketScreenContent()
                   : noTicketWidget(context, noCloseTicketLabel);
             }
@@ -91,20 +92,20 @@ class _ClosedTicketsScreenState extends State<ClosedTicketsScreen> {
                 padding: const EdgeInsets.fromLTRB(8.0, 8, 0, 0),
                 child: TextView(
                     text:
-                        "$closedTicketsLabel (${_listCloseTickets.closeTickets!.length})",
+                        "$closedTicketsLabel (${_listCloseTickets?.closeTickets!.length})",
                     textColor: textColorLight,
                     textFontWeight: FontWeight.w500,
                     fontSize: 12),
               ),
-              _listCloseTickets.closeTickets != null
+              _listCloseTickets?.closeTickets != null
                   ? ListView.builder(
                       padding: const EdgeInsets.all(6),
-                      itemCount: _listCloseTickets.closeTickets!.length,
+                      itemCount: _listCloseTickets?.closeTickets!.length,
                       physics: const NeverScrollableScrollPhysics(),
                       shrinkWrap: true,
                       itemBuilder: (context, i) {
                         return TicketWidget(
-                          item: _listCloseTickets.closeTickets![i],
+                          item: _listCloseTickets?.closeTickets![i],
                           statusData: oemStatus,
                         );
                       })
@@ -115,17 +116,24 @@ class _ClosedTicketsScreenState extends State<ClosedTicketsScreen> {
   }
 
   _getFacilityCloseTickets() async {
-    var result = await TicketViewModel().getListOwnFacilityCloseTickets();
-    result.join(
-        (failed) => {console("failed => ${failed.exception}")},
-        (loaded) => {_facilityDetails(loaded.data)},
-        (loading) => {
-              console("loading => "),
-            });
+    var isConnected = await isConnectedToNetwork();
+    if (isConnected) {
+      var result = await TicketViewModel().getListOwnFacilityCloseTickets();
+      result.join(
+              (failed) => {console("failed => ${failed.exception}")},
+              (loaded) => {_facilityDetails(loaded.data)},
+              (loading) => {
+            console("loading => "),
+          });
+    } else {
+      _listCloseTickets = HiveResources.listCloseTicketBox?.get(OfflineResources.LIST_CLOSE_TICKET_RESPONSE);
+    }
+
   }
 
   _facilityDetails(ListCloseTickets data) {
     console("_facilityDetails => ${data.closeTickets?.length.toString()}");
+    HiveResources.listCloseTicketBox?.put(OfflineResources.LIST_CLOSE_TICKET_RESPONSE, data);
     _listCloseTickets = data;
   }
 

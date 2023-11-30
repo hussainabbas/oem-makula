@@ -1,32 +1,58 @@
+import 'package:hive/hive.dart';
 import 'package:makula_oem/helper/model/chat_keys.dart';
 
+part 'get_current_user_details_model.g.dart';
+
+@HiveType(typeId: 1)
 class CurrentUser {
+  @HiveField(0)
   String? sId;
+  @HiveField(1)
   String? name;
+  @HiveField(2)
   String? username;
+  @HiveField(3)
   String? role;
+  @HiveField(4)
   String? email;
+  @HiveField(5)
   String? info;
+  @HiveField(6)
   String? token;
+  @HiveField(7)
   String? refreshToken;
+  @HiveField(8)
   String? foldersAccessToken;
 
   //String? facility;
   //Oem? oem;
+  @HiveField(9)
   bool? access;
+  @HiveField(10)
   String? userType;
+  @HiveField(11)
   String? phone;
+  @HiveField(12)
   String? about;
+  @HiveField(13)
   bool? userCredentialsSent;
+  @HiveField(14)
   bool? isOem;
+  @HiveField(15)
   bool? emailNotification;
+  @HiveField(16)
   int? totalActiveTickets;
+  @HiveField(17)
   String? organizationName;
+  @HiveField(18)
   String? organizationType;
+  @HiveField(19)
   String? chatToken;
 
   //ChatUUIDMetadata? chatUUIDMetadata;
+  @HiveField(20)
   ChatKeys? chatKeys;
+  @HiveField(21)
   String? chatUUID;
 
   CurrentUser(

@@ -4,6 +4,8 @@ import 'package:makula_oem/helper/model/get_current_user_details_model.dart';
 import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
+import 'package:makula_oem/helper/utils/hive_resources.dart';
+import 'package:makula_oem/helper/utils/offline_resources.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/pubnub/pubnub_instance.dart';
 import 'package:makula_oem/views/screens/dashboard/dashboard_provider.dart';
@@ -23,7 +25,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     with TickerProviderStateMixin {
   late TabController controller;
   PubnubInstance? _pubnubInstance;
-  final appPreferences = AppPreferences();
+  //final appPreferences = AppPreferences();
 
   @override
   void initState() {
@@ -36,18 +38,34 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   _getValueFromSP(BuildContext context) async {
-    var userValue =
-        CurrentUser.fromJson(await appPreferences.getData(AppPreferences.USER));
+    // var userValue =
+    //     CurrentUser.fromJson(await appPreferences.getData(AppPreferences.USER));
+
+    var userValue = HiveResources.currentUserBox?.get(OfflineResources.CURRENT_USER_RESPONSE);
     console(
-        "userValue.chatToken.toString(), = > ${userValue.chatToken.toString()}");
-    context.read<DashboardProvider>().setChatDetails(
-        userValue.chatToken.toString(),
-        userValue.chatKeys!.subscribeKey.toString(),
-        userValue.chatKeys!.publishKey.toString(),
-        userValue.chatUUID.toString());
-    setState(() {
-      _pubnubInstance = PubnubInstance(context);
+        "userValue.chatToken.toString(), = > ${userValue?.chatToken.toString()}");
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<DashboardProvider>().setChatDetails(
+        userValue?.chatToken.toString() ?? "",
+        userValue?.chatKeys?.subscribeKey.toString() ?? "",
+        userValue?.chatKeys?.publishKey.toString() ?? "",
+        userValue?.chatUUID.toString() ?? "",
+      );
+
+      // Move the PubnubInstance initialization here
+      setState(() {
+        _pubnubInstance = PubnubInstance(context);
+      });
     });
+    // context.read<DashboardProvider>().setChatDetails(
+    //     userValue?.chatToken.toString() ?? "",
+    //     userValue?.chatKeys!.subscribeKey.toString() ?? "",
+    //     userValue?.chatKeys!.publishKey.toString() ?? "",
+    //     userValue?.chatUUID.toString() ?? "");
+    // setState(() {
+    //   _pubnubInstance = PubnubInstance(context);
+    // });
   }
 
   @override

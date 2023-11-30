@@ -16,6 +16,8 @@ import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
 import 'package:makula_oem/helper/utils/document_type.dart';
 import 'package:makula_oem/helper/utils/extension_functions.dart';
+import 'package:makula_oem/helper/utils/hive_resources.dart';
+import 'package:makula_oem/helper/utils/offline_resources.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/pubnub/message_provider.dart';
 import 'package:makula_oem/pubnub/pubnub_instance.dart';
@@ -53,8 +55,9 @@ class _ChatScreenState extends State<ChatScreen> {
   final ImagePicker _picker = ImagePicker();
 
   _getValueFromSP() async {
-    userValue =
-        CurrentUser.fromJson(await appPreferences.getData(AppPreferences.USER));
+    userValue = HiveResources.currentUserBox!.get(OfflineResources.CURRENT_USER_RESPONSE)!;
+    // userValue =
+    //     CurrentUser.fromJson(await appPreferences.getData(AppPreferences.USER));
   }
 
   @override
@@ -196,7 +199,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _messageBody(ChatMessage message) {
-    return message.uuid == userValue.chatUUID.toString()
+    return message.uuid == userValue?.chatUUID.toString()
         ? _sender(message)
         : _receiver(message);
   }
@@ -241,8 +244,8 @@ class _ChatScreenState extends State<ChatScreen> {
                             child: Center(
                               child: Hero(
                                 tag: setAuthOnFile(
-                                    userValue.chatUUID.toString(),
-                                    userValue.chatToken.toString(),
+                                    userValue?.chatUUID.toString() ?? "",
+                                    userValue?.chatToken.toString() ?? "",
                                     message.fileURL),
                                 transitionOnUserGestures: true,
                                 child: CachedNetworkImage(
@@ -251,8 +254,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                     child: CircularProgressIndicator.adaptive(),
                                   ),
                                   imageUrl: setAuthOnFile(
-                                      userValue.chatUUID.toString(),
-                                      userValue.chatToken.toString(),
+                                      userValue?.chatUUID.toString() ?? "",
+                                      userValue?.chatToken.toString() ?? "",
                                       message.fileURL),
                                 ),
                               ),
