@@ -15,6 +15,7 @@ class EditText extends StatelessWidget {
       required FocusNode focusNode,
       required bool isValidate,
       required String validateError,
+        this.inputType,
       bool isBigEditText = false,
       bool isObscureText = false})
       : _controller = controller,
@@ -41,6 +42,7 @@ class EditText extends StatelessWidget {
   final String _validateError;
   final bool _isBigEditText;
   final bool _obscureText;
+  final TextInputType? inputType;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +60,7 @@ class EditText extends StatelessWidget {
           child: TextFormField(
             obscureText: _obscureText,
             keyboardType:
-                _isBigEditText ? TextInputType.multiline : TextInputType.text,
+                _isBigEditText ? TextInputType.multiline : (inputType ?? TextInputType.text),
             maxLines: _isBigEditText ? 6 : 1,
             controller: _controller,
             autocorrect: false,

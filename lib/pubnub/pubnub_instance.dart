@@ -60,10 +60,10 @@ class PubnubInstance {
   setMemberships(List<MembershipMetadataInput> channelMetaDataList) async {
     try {
       // var userValue = CurrentUser.fromJson(await appPreferences.getData(AppPreferences.USER));d
-      var userValue = HiveResources.currentUserBox?.get(OfflineResources.CURRENT_USER_RESPONSE);
+      // var userValue = HiveResources.currentUserBox?.get(OfflineResources.CURRENT_USER_RESPONSE);
       await pubNub.objects.setMemberships(channelMetaDataList,
           includeCustomFields: true,
-          uuid: userValue?.sId,
+          uuid: "userValue?.sId",
           limit: 10000,
           includeChannelCustomFields: true,
           includeCount: true,
@@ -79,11 +79,11 @@ class PubnubInstance {
   Future<MembershipsResult> getMemberships() async { 
     // var userValue = CurrentUser
     //     .fromJson(await appPreferences.getData(AppPreferences.USER));
-    var userValue = HiveResources.currentUserBox?.get(OfflineResources.CURRENT_USER_RESPONSE);
+    // var userValue = HiveResources.currentUserBox?.get(OfflineResources.CURRENT_USER_RESPONSE);
     var memberships = await pubNub.objects.getMemberships(
         limit: 10000,
         includeCount: true,
-        uuid: userValue?.sId,
+        uuid: "userValue?.sId",
         includeChannelFields: true,
         includeChannelCustomFields: true,
         includeCustomFields: true); 

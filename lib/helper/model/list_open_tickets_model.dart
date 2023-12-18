@@ -1,12 +1,16 @@
 
 
-import 'package:hive/hive.dart';
-import 'package:makula_oem/helper/model/open_ticket_model.dart';
-part 'list_open_tickets_model.g.dart';
 
-@HiveType(typeId: 12)
+import 'package:floor/floor.dart';
+import 'package:makula_oem/database/type_converters/open_ticket_converter.dart';
+import 'package:makula_oem/helper/model/open_ticket_model.dart';
+
+@entity
 class ListOpenTickets {
-  @HiveField(0)
+  @primaryKey
+  int? id;
+
+  @TypeConverters([ListOpenTicketConverter])
   List<OpenTicket>? openTicket;
 
   ListOpenTickets({this.openTicket});

@@ -1,12 +1,11 @@
-import 'package:hive/hive.dart';
 
-part 'chat_keys.g.dart';
+import 'package:floor/floor.dart';
 
-@HiveType(typeId: 2)
+@entity
 class ChatKeys {
-  @HiveField(0)
+  @primaryKey
+  int? id;
   String? subscribeKey;
-  @HiveField(1)
   String? publishKey;
 
   ChatKeys({this.subscribeKey, this.publishKey});

@@ -12,6 +12,7 @@ import 'package:makula_oem/helper/utils/constants.dart';
 import 'package:makula_oem/helper/utils/offline_resources.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/helper/viewmodels/tickets_view_model.dart';
+import 'package:makula_oem/main.dart';
 import 'package:makula_oem/pubnub/pubnub_instance.dart';
 import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/provider/ticket_provider.dart';
 import 'package:makula_oem/views/widgets/makula_text_view.dart';
@@ -39,12 +40,13 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       RefreshController(initialRefresh: false);
   final appPreferences = AppPreferences();
   late StatusData? oemStatus;
+
   //late TicketProvider _tickerProvider;
 
   _getOEMStatuesValueFromSP() async {
-    //oemStatus =
-      //  StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
-    oemStatus =  HiveResources.oemStatusBox?.get(OfflineResources.OEM_STATUS_RESPONSE);
+    var abc =  await appDatabase?.oemStatusDao.findAllGetOemStatusesResponses();
+    oemStatus = abc?[0];
+    // oemStatus =  HiveResources.oemStatusBox?.get(OfflineResources.OEM_STATUS_RESPONSE);
   }
 
   @override
@@ -209,7 +211,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   }
 
   _getOpenTickets() async {
+    console("_getOpenTickets");
     var isConnected = await isConnectedToNetwork();
+    console("_getOpenTickets isConnected -> $isConnected");
     if (isConnected) {
       var result = await TicketViewModel().getListOwnOemUserOpenTickets();
       result.join(
@@ -221,8 +225,18 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
           });
       await _getCloseTickets();
     } else {
-      _listOpenTickets = HiveResources.listUserOpenTicketsBox?.get(OfflineResources.LIST_USER_OPEN_TICKETS_RESPONSE);
-      console("_openTicketDetails => ${_listOpenTickets?.openTicket?[0].assignee?.name}");
+      try {
+        var openTicketList =  await appDatabase?.userOpenTicketListDao.getListUserOpenTickets();
+        _listOpenTickets = openTicketList?[0];
+
+
+        var closeTicketList = await appDatabase?.userCloseTicketListDao.getListUserCloseTickets();
+        _listUserCloseTickets = closeTicketList?[0];
+
+      }  catch (e) {
+        console("_getOpenTickets => $e");
+      }
+      console("_getOpenTickets => ${_listOpenTickets?.openTicket?.length}");
     }
   }
 
@@ -238,98 +252,105 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             console("loading => "),
           });
     } else {
-      _listUserCloseTickets = HiveResources.listUserCloseTicketsBox?.get(OfflineResources.LIST_USER_CLOSE_TICKETS_RESPONSE);
-      console("_openTicketDetails => ${_listOpenTickets?.openTicket?[0].assignee?.name}");
+      var closeTicketList = await appDatabase?.userCloseTicketListDao.getListUserCloseTickets();
+      _listUserCloseTickets = closeTicketList?[0];
+      // _listUserCloseTickets = await appDatabase?.userCloseTicketListDao.getListUserCloseTickets();
+      console("_getCloseTickets => ${_listOpenTickets?.openTicket?[0].assignee?.name}");
     }
   }
 
   _openTicketDetails(ListUserOpenTickets data) async {
-    HiveResources.listUserOpenTicketsBox?.put(OfflineResources.LIST_USER_OPEN_TICKETS_RESPONSE, data);
+    await appDatabase?.userOpenTicketListDao.insertListUserOpenTickets(data);
     _listOpenTickets = data;
   }
 
   _closeTicketDetails(ListUserCloseTickets data) async {
-    HiveResources.listUserCloseTicketsBox?.put(OfflineResources.LIST_USER_CLOSE_TICKETS_RESPONSE, data);
+    await appDatabase?.userCloseTicketListDao.insertListUserCloseTickets(data);
     _listUserCloseTickets = data;
   }
 
   _getMemberShipResults(ListUserOpenTickets tickets) async {
-    final Map<String, Timetoken> _channelsWithToken = HashMap();
-    List<OpenTicket> unreadList = [];
-    List<OpenTicket> newTicket = [];
-    List<OpenTicket> readList = [];
-    List<String> notFoundList = [];
+    var isConnected = await isConnectedToNetwork();
+    if (isConnected) {
+      final Map<String, Timetoken> _channelsWithToken = HashMap();
+      List<OpenTicket> unreadList = [];
+      List<OpenTicket> newTicket = [];
+      List<OpenTicket> readList = [];
+      List<String> notFoundList = [];
 
-    var memberShipResult = await widget._pubnub.getMemberships();
-    List<MembershipMetadata> foundListFromPN = [];
-    for (var item in tickets.openTicket!) {
-      if (item.status != "closed") {
-        foundListFromPN.addAll(memberShipResult.metadataList!
-            .where((element) => element.channel.id
-                .contains(item.ticketChatChannels![0].toString()))
-            .toList());
-        if (foundListFromPN.isEmpty) {
-          notFoundList.add(item.ticketChatChannels![0].toString());
-          item.channelsWithCount = 1;
-          newTicket.add(item);
+      var memberShipResult = await widget._pubnub.getMemberships();
+      List<MembershipMetadata> foundListFromPN = [];
+      for (var item in tickets.openTicket!) {
+        if (item.status != "closed") {
+          foundListFromPN.addAll(memberShipResult.metadataList!
+              .where((element) =>
+              element.channel.id
+                  .contains(item.ticketChatChannels![0].toString()))
+              .toList());
+          if (foundListFromPN.isEmpty) {
+            notFoundList.add(item.ticketChatChannels![0].toString());
+            item.channelsWithCount = 1;
+            newTicket.add(item);
+          }
         }
       }
-    }
 
-    //console("foundListFromPN FOUND => ${foundListFromPN.length}");
-    for (var pbItem in foundListFromPN) {
-      //console("working = ${pbItem.channel.id} - ${pbItem.custom}");
-      if (pbItem.custom != null) {
-        if (pbItem.custom['lastReadTimetoken'] != null) {
-          var timeToken = pbItem.custom['lastReadTimetoken'];
-          _channelsWithToken[pbItem.channel.id] =
-              Timetoken(BigInt.parse(timeToken.toString()));
+      //console("foundListFromPN FOUND => ${foundListFromPN.length}");
+      for (var pbItem in foundListFromPN) {
+        //console("working = ${pbItem.channel.id} - ${pbItem.custom}");
+        if (pbItem.custom != null) {
+          if (pbItem.custom['lastReadTimetoken'] != null) {
+            var timeToken = pbItem.custom['lastReadTimetoken'];
+            _channelsWithToken[pbItem.channel.id] =
+                Timetoken(BigInt.parse(timeToken.toString()));
+          }
         }
       }
-    }
-    notFoundList = notFoundList.toSet().toList();
-    //console("NOT FOUND => ${notFoundList.length}");
-    List<MembershipMetadataInput> channelMetaDataList = [];
-    for (var item in notFoundList) {
-      //console("notFoundList => $item");
-      var date = DateTime.now();
-      var newDate = DateTime(date.year, date.month - 1);
+      notFoundList = notFoundList.toSet().toList();
+      //console("NOT FOUND => ${notFoundList.length}");
+      List<MembershipMetadataInput> channelMetaDataList = [];
+      for (var item in notFoundList) {
+        //console("notFoundList => $item");
+        var date = DateTime.now();
+        var newDate = DateTime(date.year, date.month - 1);
 
-      channelMetaDataList.add(MembershipMetadataInput(item.toString(),
-          custom: {"lastReadTimetoken": "${Timetoken.fromDateTime(newDate)}"}));
-    }
-    widget._pubnub.setMemberships(channelMetaDataList);
-    var messageCount =
-        await widget._pubnub.getMessagesCount(_channelsWithToken);
-    //console("messageCount => ${messageCount.channels}");
-    for (var item in tickets.openTicket!) {
-      try {
-        if (messageCount.channels[item.ticketChatChannels![0]] != null) {
-          item.channelsWithCount =
-              messageCount.channels[item.ticketChatChannels![0]]!;
-        } else {
+        channelMetaDataList.add(MembershipMetadataInput(item.toString(),
+            custom: {
+              "lastReadTimetoken": "${Timetoken.fromDateTime(newDate)}"
+            }));
+      }
+      widget._pubnub.setMemberships(channelMetaDataList);
+      var messageCount =
+      await widget._pubnub.getMessagesCount(_channelsWithToken);
+      //console("messageCount => ${messageCount.channels}");
+      for (var item in tickets.openTicket!) {
+        try {
+          if (messageCount.channels[item.ticketChatChannels![0]] != null) {
+            item.channelsWithCount =
+            messageCount.channels[item.ticketChatChannels![0]]!;
+          } else {
+            item.channelsWithCount = 0;
+          }
+        } catch (e) {
+          //console("item.channelsWithCount e => $e");
           item.channelsWithCount = 0;
         }
-      } catch (e) {
-        //console("item.channelsWithCount e => $e");
-        item.channelsWithCount = 0;
       }
-    }
-    for (var element in tickets.openTicket!) {
-      if (element.status != "closed") {
-        if (element.channelsWithCount > 0) {
-          unreadList.add(element);
-        } else {
-          readList.add(element);
+      for (var element in tickets.openTicket!) {
+        if (element.status != "closed") {
+          if (element.channelsWithCount > 0) {
+            unreadList.add(element);
+          } else {
+            readList.add(element);
+          }
         }
       }
+      tickets.openTicket?.clear();
+      tickets.openTicket?.addAll(newTicket);
+      tickets.openTicket?.addAll(unreadList);
+      tickets.openTicket?.addAll(readList);
+      _listOpenTickets = tickets;
     }
-    tickets.openTicket?.clear();
-    tickets.openTicket?.addAll(newTicket);
-    tickets.openTicket?.addAll(unreadList);
-    tickets.openTicket?.addAll(readList);
-    _listOpenTickets = tickets;
-
 
   }
 

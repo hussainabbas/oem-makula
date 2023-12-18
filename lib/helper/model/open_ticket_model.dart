@@ -1,47 +1,39 @@
-import 'package:hive/hive.dart';
+import 'package:floor/floor.dart';
+import 'package:makula_oem/database/type_converters/current_user_converter.dart';
+import 'package:makula_oem/database/type_converters/facility_converter.dart';
+import 'package:makula_oem/database/type_converters/list_string_converter.dart';
+import 'package:makula_oem/database/type_converters/machine_information_converter.dart';
 import 'package:makula_oem/helper/model/facilities.dart';
 import 'package:makula_oem/helper/model/get_current_user_details_model.dart';
 import 'package:makula_oem/helper/model/machine_information.dart';
 
-part 'open_ticket_model.g.dart';
-
-@HiveType(typeId: 8)
+@entity
 class OpenTicket {
-  @HiveField(0)
+  @primaryKey
   String? sId;
-  @HiveField(1)
   String? title;
-  @HiveField(2)
   String? ticketId;
-  @HiveField(3)
   String? ticketType;
-  @HiveField(4)
+  @TypeConverters([CurrentUserConverter])
+  @ColumnInfo(name: "assignee")
   CurrentUser? assignee;
-  @HiveField(5)
   String? description;
-  @HiveField(6)
   bool? unread;
-  @HiveField(7)
   String? notes;
-  @HiveField(8)
   String? chat;
-  @HiveField(9)
   String? status;
-  @HiveField(10)
   String? createdAt;
-  @HiveField(11)
+  @TypeConverters([FacilityConverter])
   Facility? facility;
-  @HiveField(12)
+  @TypeConverters([MachineInformationConverter])
   MachineInformation? machine;
-  @HiveField(13)
   int channelsWithCount = 0;
-  @HiveField(14)
+  @TypeConverters([ListStringConverter])
   List<String>? ticketChatChannels;
-  @HiveField(15)
+  @TypeConverters([ListStringConverter])
   List<String>? ticketInternalNotesChatChannels;
-  @HiveField(16)
+  @TypeConverters([CurrentUserConverter])
   CurrentUser? user;
-  @HiveField(17)
   String? timeToken;
 
   OpenTicket(

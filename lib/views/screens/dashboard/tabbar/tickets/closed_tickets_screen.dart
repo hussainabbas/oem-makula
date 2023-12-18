@@ -9,6 +9,7 @@ import 'package:makula_oem/helper/utils/hive_resources.dart';
 import 'package:makula_oem/helper/utils/offline_resources.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/helper/viewmodels/tickets_view_model.dart';
+import 'package:makula_oem/main.dart';
 import 'package:makula_oem/pubnub/pubnub_instance.dart';
 import 'package:makula_oem/views/widgets/makula_text_view.dart';
 import 'package:makula_oem/views/widgets/makula_ticket_widget.dart';
@@ -35,7 +36,8 @@ class _ClosedTicketsScreenState extends State<ClosedTicketsScreen> {
   //late TicketProvider _tickerProvider;
 
   _getOEMStatuesValueFromSP() async {
-    oemStatus =  HiveResources.oemStatusBox?.get(OfflineResources.OEM_STATUS_RESPONSE);
+    var abc =  await appDatabase?.oemStatusDao.findAllGetOemStatusesResponses();
+    oemStatus = abc?[0];
   }
 
 
@@ -126,14 +128,17 @@ class _ClosedTicketsScreenState extends State<ClosedTicketsScreen> {
             console("loading => "),
           });
     } else {
-      _listCloseTickets = HiveResources.listCloseTicketBox?.get(OfflineResources.LIST_CLOSE_TICKET_RESPONSE);
+      // _listCloseTickets = await appDatabase?.listCloseTicketsDao.getListCloseTickets();
+
+      var closeTicketList = await appDatabase?.listCloseTicketsDao.getListCloseTickets();
+      _listCloseTickets = closeTicketList?[0];
     }
 
   }
 
-  _facilityDetails(ListCloseTickets data) {
+  _facilityDetails(ListCloseTickets data)async {
     console("_facilityDetails => ${data.closeTickets?.length.toString()}");
-    HiveResources.listCloseTicketBox?.put(OfflineResources.LIST_CLOSE_TICKET_RESPONSE, data);
+    await appDatabase?.listCloseTicketsDao.insertListCloseTickets(data);
     _listCloseTickets = data;
   }
 

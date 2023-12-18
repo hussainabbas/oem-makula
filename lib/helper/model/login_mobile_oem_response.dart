@@ -1,14 +1,12 @@
+import 'package:floor/floor.dart';
 
-import 'package:hive/hive.dart';
 
-
-part 'login_mobile_oem_response.g.dart';
-
-@HiveType(typeId: 0)
+@Entity()
 class LoginMobile {
-  @HiveField(0)
+  @PrimaryKey(autoGenerate: true)
+  int? id;
+
   String? token;
-  @HiveField(1)
   String? refreshToken;
 
   LoginMobile({this.token , this.refreshToken});

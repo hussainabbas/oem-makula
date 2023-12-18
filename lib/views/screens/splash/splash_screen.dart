@@ -14,6 +14,7 @@ import 'package:makula_oem/helper/utils/offline_resources.dart';
 import 'package:makula_oem/helper/utils/routes.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/helper/viewmodels/login_view_model.dart';
+import 'package:makula_oem/main.dart';
 
 import '../../../helper/model/login_mobile_oem_response.dart';
 
@@ -40,13 +41,17 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   _getDetailsFromAppPreferences() async {
-    var loggedInResponse = HiveResources.loginBox?.get(OfflineResources.LOGIN_TOKEN_RESPONSE);
+    var userDetails = await appDatabase?.userDao.getCurrentUserDetailsFromDb();
+    var loggedInResponse = await appDatabase?.loginMobileDao.getLoginResponseFromDb();
+    var oemStatus = await appDatabase?.oemStatusDao.findAllGetOemStatusesResponses();
+
     if (loggedInResponse?.token != null) {
       GraphQLConfig.token = loggedInResponse?.token ?? "";
       GraphQLConfig.refreshToken = loggedInResponse?.refreshToken ?? "";
 
-      console("token => ${loggedInResponse?.token}");
-      console("refreshToken => ${loggedInResponse?.refreshToken}");
+      console("token=> ${loggedInResponse?.token}");
+      console("refreshToken=> ${loggedInResponse?.refreshToken}");
+
       var isConnected = await isConnectedToNetwork();
       if (isConnected) {
         _getCurrentUserDetails();
@@ -64,32 +69,6 @@ class _SplashScreenState extends State<SplashScreen> {
       Timer(const Duration(seconds: 3),
           () => Navigator.pushReplacementNamed(context, loginScreenRoute));
     }
-
-
-    // var isLoggedIn =
-    //     await appPreferences.getBool(AppPreferences.LOGGED_IN) ?? false;
-    // if (isLoggedIn) {
-    //   _token = await appPreferences.getString(AppPreferences.TOKEN) ?? "";
-    //   _refreshToken =
-    //       await appPreferences.getString(AppPreferences.REFRESH_TOKEN) ?? "";
-    //   GraphQLConfig.token = _token;
-    //   GraphQLConfig.refreshToken = _refreshToken;
-    //   var isConnected = await isConnectedToNetwork();
-    //   if (isConnected) {
-    //     _getCurrentUserDetails();
-    //   } else {
-    //     console("isConnected => $isConnected");
-    //     if (context.mounted) {
-    //       Timer(
-    //           const Duration(seconds: 3),
-    //           () => Navigator.of(context).pushNamedAndRemoveUntil(
-    //               dashboardScreenRoute, (Route<dynamic> route) => false));
-    //     }
-    //   }
-    // } else {
-    //   Timer(const Duration(seconds: 3),
-    //       () => Navigator.pushReplacementNamed(context, loginScreenRoute));
-    // }
   }
 
   _getCurrentUserDetails() async {
@@ -98,7 +77,7 @@ class _SplashScreenState extends State<SplashScreen> {
       result.join(
           (failed) => {
                 Navigator.pushReplacementNamed(context, loginScreenRoute),
-                console("failed => " + failed.exception.toString())
+                console("failed => ${failed.exception}")
               },
           (loaded) => {_getNewChatToken(loaded.data)},
           (loading) => {console("loading => ")});
@@ -131,8 +110,8 @@ class _SplashScreenState extends State<SplashScreen> {
 
   _saveUserDetailsInAppPreferences(CurrentUser user, NewChatToken token) async {
     user.chatToken = token.getNewChatToken.toString();
-    HiveResources.currentUserBox?.put(OfflineResources.CURRENT_USER_RESPONSE, user);
-    // await appPreferences.setData(AppPreferences.USER, user);
+
+    appDatabase?.userDao.insertCurrentUserDetailsIntoDb(user);
     await _getOEMStatues();
   }
 
@@ -161,7 +140,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   _saveOEMStatues(StatusData response) async {
     console("_saveOEMStatues => ${response.listOwnOemOpenTickets?.length}");
-    HiveResources.oemStatusBox?.put(OfflineResources.OEM_STATUS_RESPONSE, response);
+    // await HiveResources.oemStatusBox?.put(OfflineResources.OEM_STATUS_RESPONSE, response);
     //await appPreferences.setData(AppPreferences.STATUES, response);
     if (context.mounted) {
       Navigator.of(context).pushNamedAndRemoveUntil(

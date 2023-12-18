@@ -55,7 +55,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final ImagePicker _picker = ImagePicker();
 
   _getValueFromSP() async {
-    userValue = HiveResources.currentUserBox!.get(OfflineResources.CURRENT_USER_RESPONSE)!;
+    // userValue = HiveResources.currentUserBox!.get(OfflineResources.CURRENT_USER_RESPONSE)!;
     // userValue =
     //     CurrentUser.fromJson(await appPreferences.getData(AppPreferences.USER));
   }

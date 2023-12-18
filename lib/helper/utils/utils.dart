@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -9,11 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:makula_oem/helper/model/get_status_response.dart';
-import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
-import 'package:makula_oem/helper/utils/hive_resources.dart';
-import 'package:makula_oem/helper/utils/offline_resources.dart';
+import 'package:makula_oem/main.dart';
 
 extension Keyboard on BuildContext {
   void hideKeyboard() {
@@ -117,29 +114,33 @@ Color getContainerFrontColor2(String status) {
 }
 
 Future<Statuses?> getStatusById(String desiredStatusId) async {
-  // var appPreferences = AppPreferences();
-  var statusData =  HiveResources.oemStatusBox?.get(OfflineResources.OEM_STATUS_RESPONSE);
-  //var statusData = StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
+  var statusData =
+      await appDatabase?.oemStatusDao.findAllGetOemStatusesResponses();
+  // var statusData = StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
 
-  console("getStatusById statusData => ${statusData?.listOwnOemOpenTickets?[0].oem?.statuses?.length}");
-  Statuses? foundStatus = statusData?.listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
-        (status) => status.sId == desiredStatusId,
-  );
+  console(
+      "getStatusById statusData => ${statusData?[0].listOwnOemOpenTickets?[0].oem?.statuses?.length}");
+  Statuses? foundStatus =
+      statusData?[0].listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
+            (status) => status.sId == desiredStatusId,
+          );
 
   console("getStatusById => ${foundStatus?.label}");
 
   return foundStatus;
 }
 
-
 Future<Statuses?> getStatusByName(String desiredStatusName) async {
   // var appPreferences = AppPreferences();
   //var statusData = StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
-  var statusData =  HiveResources.oemStatusBox?.get(OfflineResources.OEM_STATUS_RESPONSE);
-  console("getStatusByName statusData => ${statusData?.listOwnOemOpenTickets?[0].oem?.statuses?.length}");
-  Statuses? foundStatus = statusData?.listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
-        (status) => status.label == desiredStatusName,
-  );
+  var statusData =
+      await appDatabase?.oemStatusDao.findAllGetOemStatusesResponses();
+  console(
+      "getStatusByName statusData => ${statusData?[0].listOwnOemOpenTickets?[0].oem?.statuses?.length}");
+  Statuses? foundStatus =
+      statusData?[0].listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
+            (status) => status.label == desiredStatusName,
+          );
 
   console("getStatusById => ${foundStatus?.label}");
 
@@ -154,11 +155,13 @@ Color getStatusContainerColor(String status) {
     return onHoldContainerColor;
   } else if (lowerCaseStatus == "visit planned" || lowerCaseStatus == "visit") {
     return visitContainerColor;
-  } else if (lowerCaseStatus == "waiting input" || lowerCaseStatus == "waiting") {
+  } else if (lowerCaseStatus == "waiting input" ||
+      lowerCaseStatus == "waiting") {
     return waitingContainerColor;
   } else if (lowerCaseStatus == "closed") {
     return closedContainerColor;
-  } else if (lowerCaseStatus == "callback scheduled" || lowerCaseStatus == "callback") {
+  } else if (lowerCaseStatus == "callback scheduled" ||
+      lowerCaseStatus == "callback") {
     return callbackContainerColor;
   } else {
     return redContainerColor;
@@ -174,11 +177,13 @@ Color getStatusColor(String status) {
     return onHoldStatusColor;
   } else if (lowerCaseStatus == "visit planned" || lowerCaseStatus == "visit") {
     return visitStatusColor;
-  } else if (lowerCaseStatus == "waiting input" || lowerCaseStatus == "waiting") {
+  } else if (lowerCaseStatus == "waiting input" ||
+      lowerCaseStatus == "waiting") {
     return waitingStatusColor;
   } else if (lowerCaseStatus == "closed") {
     return closedStatusColor;
-  } else if (lowerCaseStatus == "callback scheduled" || lowerCaseStatus == "callback") {
+  } else if (lowerCaseStatus == "callback scheduled" ||
+      lowerCaseStatus == "callback") {
     return callbackStatusColor;
   } else {
     return redStatusColor;

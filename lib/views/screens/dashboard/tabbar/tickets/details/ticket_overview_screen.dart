@@ -3,18 +3,18 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:makula_oem/helper/model/chat_message_model.dart';
 import 'package:makula_oem/helper/model/get_current_user_details_model.dart';
+import 'package:makula_oem/helper/model/get_own_oem_ticket_by_id_response.dart';
 import 'package:makula_oem/helper/model/get_status_response.dart';
 import 'package:makula_oem/helper/model/get_ticket_detail_response.dart';
 import 'package:makula_oem/helper/model/list_assignee_response.dart';
 import 'package:makula_oem/helper/model/open_ticket_model.dart';
-import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
 import 'package:makula_oem/helper/utils/extension_functions.dart';
-import 'package:makula_oem/helper/utils/hive_resources.dart';
-import 'package:makula_oem/helper/utils/offline_resources.dart';
+import 'package:makula_oem/helper/utils/routes.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/helper/viewmodels/tickets_view_model.dart';
+import 'package:makula_oem/main.dart';
 import 'package:makula_oem/pubnub/message_provider.dart';
 import 'package:makula_oem/pubnub/pubnub_instance.dart';
 import 'package:makula_oem/views/screens/dashboard/addNewTicket/viewmodel/add_ticket_view_model.dart';
@@ -37,8 +37,9 @@ class TicketOverviewScreen extends StatefulWidget {
 
 class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   //OpenTicket _ticket = OpenTicket();
-  GetTicketDetailResponse _ticketDetailData = GetTicketDetailResponse();
+  GetOwnOemTicketById _ticketDetailData = GetOwnOemTicketById();
   CurrentUser _currentUser = CurrentUser();
+
   // final appPreferences = AppPreferences();
   final TextEditingController _messageController = TextEditingController();
   final FocusNode _sendFieldFocus = FocusNode();
@@ -48,12 +49,12 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   ListAssignee responseAssignee = ListAssignee();
   var _status = "";
   late StatusData? oemStatus;
+
   //late TicketProvider _tickerProvider;
 
   _getOEMStatuesValueFromSP() async {
-    // oemStatus =
-    //     StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
-    oemStatus =  HiveResources.oemStatusBox?.get(OfflineResources.OEM_STATUS_RESPONSE);
+    var abc = await appDatabase?.oemStatusDao.findAllGetOemStatusesResponses();
+    oemStatus = abc?[0];
   }
 
   @override
@@ -66,10 +67,11 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   }
 
   void _getValuesFromSP() async {
-    // _currentUser =
-    //     CurrentUser.fromJson(await appPreferences.getData(AppPreferences.USER));
+    _currentUser = (await appDatabase?.userDao.getCurrentUserDetailsFromDb())!;
 
-    _currentUser =  HiveResources.currentUserBox!.get(OfflineResources.CURRENT_USER_RESPONSE)!;
+    // _currentUser = HiveResources.currentUserBox!
+    //     .get(OfflineResources.CURRENT_USER_RESPONSE)!;
+    _getTicketDetailResponse();
     console("message => ${_currentUser.name}");
   }
 
@@ -92,7 +94,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
           if (projectSnap.hasError) {
             return const Center(child: Text(unexpectedError));
           } else {
-            return _ticketDetailData.getOwnOemTicketById != null
+            return _ticketDetailData != null
                 ? _ticketOverviewContent()
                 : Container();
           }
@@ -100,38 +102,71 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   }
 
   _getTicketDetailResponse() async {
-    var result =
-        await TicketViewModel().getTicketById(widget._ticket.sId.toString());
-    result.join(
-        (failed) => {console("failed => " + failed.exception.toString())},
-        (loaded) => {
-          _getStatus(loaded.data)
-          //     _ticketDetailData = loaded.data,
-          // _getStatus(_ticketDetailData.getOwnOemTicketById?.status.toString() ?? "")
-            },
-        (loading) => {
-              console("loading => "),
-            });
+    var isConnected = await isConnectedToNetwork();
+    if (isConnected) {
+      var result =
+          await TicketViewModel().getTicketById(widget._ticket.sId.toString());
+      result.join(
+          (failed) => {console("failed => ${failed.exception}")},
+          (loaded) => {
+                _getStatus(loaded.data),
+                //     _ticketDetailData = loaded.data,
+                // _getStatus(_ticketDetailData.getOwnOemTicketById?.status.toString() ?? "")
+              },
+          (loading) => {
+                console("loading => "),
+              });
 
-    await getListOwnOemSupportAccounts();
+      await getListOwnOemSupportAccounts();
+    } else {
+      _ticketDetailData = (await appDatabase?.getTicketDetailResponseDao
+          .getTicketDetailResponseById(widget._ticket.sId ?? ""))!;
+      responseAssignee = (await appDatabase?.getListAssignee.findAssignee())!;
+      _getStatusFromDb();
+      // responseAssignee = HiveResources.listAssigneeBox!.get(OfflineResources.LIST_ASSIGNEE_RESPONSE)!;
+    }
+  }
+
+  _getStatusFromDb() async {
+    var statusData =
+        await getStatusById(_ticketDetailData.status.toString() ?? "");
+    _status = statusData?.label ?? "";
   }
 
   _getStatus(GetTicketDetailResponse response) async {
-    var statusData = await getStatusById(response.getOwnOemTicketById?.status.toString() ?? "");
+    var statusData = await getStatusById(
+        response.getOwnOemTicketById?.status.toString() ?? "");
     _status = statusData?.label ?? "";
-    _ticketDetailData = response;
+    _ticketDetailData = response.getOwnOemTicketById!;
+
+    await appDatabase?.getTicketDetailResponseDao
+        .insertOrUpdateTicketDetailResponse(response.getOwnOemTicketById!);
   }
 
   getListOwnOemSupportAccounts() async {
-    var result = await AddTicketViewModel().getListOwnOemSupportAccounts();
-    result.join(
-        (failed) => {console("failed => ${failed.exception}")},
-        (loaded) => {
-              responseAssignee = loaded.data,
-            },
-        (loading) => {
-              console("loading => "),
-            });
+    var isConnected = await isConnectedToNetwork();
+    if (isConnected) {
+      var result = await AddTicketViewModel().getListOwnOemSupportAccounts();
+      result.join(
+          (failed) => {console("failed => ${failed.exception}")},
+          (loaded) => {
+                //responseAssignee = loaded.data,
+                _getListAssignee(loaded.data),
+                // HiveResources.listAssigneeBox?.put(OfflineResources.LIST_ASSIGNEE_RESPONSE, loaded.data),
+
+                // console("getListOwnOemSupportAccounts => ${HiveResources.listAssigneeBox!.get(OfflineResources.LIST_ASSIGNEE_RESPONSE)!.listOwnOemSupportAccounts?.length}")
+              },
+          (loading) => {
+                console("loading => "),
+              });
+    } else {
+      responseAssignee = (await appDatabase?.getListAssignee.findAssignee())!;
+    }
+  }
+
+  _getListAssignee(ListAssignee listAssignee) async {
+    responseAssignee = listAssignee;
+    await appDatabase?.getListAssignee.insertListAssignee(listAssignee);
   }
 
   Widget _ticketOverviewContent() {
@@ -158,7 +193,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                       ),
                       TextView(
                           text:
-                              "${_ticketDetailData.getOwnOemTicketById?.title?.capitalizeString()}",
+                              "${_ticketDetailData?.title?.capitalizeString()}",
                           textColor: textColorDark,
                           textFontWeight: FontWeight.w600,
                           fontSize: 17),
@@ -167,8 +202,8 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                       ),
                       TextView(
                           text:
-                              "${_ticketDetailData.getOwnOemTicketById?.machine?.name?.capitalizeString()} "
-                              " •  ${_ticketDetailData.getOwnOemTicketById?.machine?.serialNumber.toString()}",
+                              "${_ticketDetailData?.machine?.name?.capitalizeString()} "
+                              " •  ${_ticketDetailData?.machine?.serialNumber.toString()}",
                           textColor: textColorLight,
                           textFontWeight: FontWeight.w500,
                           fontSize: 12),
@@ -180,9 +215,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                         height: 28,
                       ),
                       ReadMoreText(
-                        _ticketDetailData.getOwnOemTicketById?.description
-                                .toString() ??
-                            "",
+                        _ticketDetailData?.description.toString() ?? "",
                         colorClickableText: primaryColor,
                         trimCollapsedText: '...Read more',
                         trimExpandedText: ' Read less',
@@ -191,6 +224,16 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                             fontSize: 14,
                             fontWeight: FontWeight.w500),
                       ),
+
+                      // const SizedBox(
+                      //   height: 28,
+                      // ),
+                      // GestureDetector(
+                      //   onTap: () {
+                      //     Navigator.pushNamed(context, procedureScreenRoute);
+                      //   },
+                      //   child: Text("Procedures"),
+                      // ),
                     ],
                   ),
                 ),
@@ -207,6 +250,8 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
           opacity: 0.3,
           child: line(context),
         ),
+
+
         _status != "Closed"
             ? Container(
                 padding: const EdgeInsets.all(16),
@@ -292,14 +337,17 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   }
 
   void _sendInternalNotes() async {
-    if (_messageController.text.isNotEmpty) {
-      context.showCustomDialog();
-      await messageProvider!.sendMessage(
-          widget._ticket.ticketInternalNotesChatChannels![0],
-          _messageController.text);
-      _messageController.text = "";
-      Navigator.pop(context);
-      context.showSuccessSnackBar("Internal Note Saved");
+    var isConnected = await isConnectedToNetwork();
+    if (isConnected) {
+      if (_messageController.text.isNotEmpty) {
+        context.showCustomDialog();
+        await messageProvider!.sendMessage(
+            widget._ticket.ticketInternalNotesChatChannels![0],
+            _messageController.text);
+        _messageController.text = "";
+        Navigator.pop(context);
+        context.showSuccessSnackBar("Internal Note Saved");
+      }
     }
   }
 
@@ -430,7 +478,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
             textColor: textColorLight,
           ),
           TextView(
-            text: _ticketDetailData.getOwnOemTicketById?.createdAt?.formatDate(
+            text: _ticketDetailData?.createdAt?.formatDate(
                     dateFormatYYYMMddTHHmmssSSSZ, dateFormatYYYYddMM) ??
                 "",
             fontSize: 13,
@@ -454,9 +502,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
             textColor: textColorLight,
           ),
           TextView(
-            text: ticketID(
-                _ticketDetailData.getOwnOemTicketById?.ticketId.toString() ??
-                    ""),
+            text: ticketID(_ticketDetailData?.ticketId.toString() ?? ""),
             fontSize: 13,
             textFontWeight: FontWeight.w500,
             textColor: textColorDark,
@@ -541,13 +587,9 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                       Container(
                         constraints: const BoxConstraints(maxWidth: 100),
                         child: TextView(
-                          text:
-                              _ticketDetailData.getOwnOemTicketById!.assignee ==
-                                      null
-                                  ? notYetAssigned
-                                  : _ticketDetailData
-                                      .getOwnOemTicketById!.assignee!.name
-                                      .toString(),
+                          text: _ticketDetailData.assignee == null
+                              ? notYetAssigned
+                              : _ticketDetailData.assignee!.name.toString(),
                           fontSize: 13,
                           textFontWeight: FontWeight.w500,
                           textColor: textColorDark,
@@ -583,9 +625,9 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
             textColor: textColorLight,
           ),
           TextView(
-            text: _ticketDetailData.getOwnOemTicketById!.user == null
+            text: _ticketDetailData!.user == null
                 ? notYetAssigned
-                : _ticketDetailData.getOwnOemTicketById!.user!.name
+                : _ticketDetailData!.user!.name
                     .toString()
                     .toLowerCase()
                     .capitalizeString(),
@@ -616,8 +658,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
     _updateTicketStatus(statusData?.sId ?? "");
   }
 
-  void _showStatusModal(
-      BuildContext context, GetTicketDetailResponse response) {
+  void _showStatusModal(BuildContext context, GetOwnOemTicketById response) {
     showModalBottomSheet(
         context: context,
         isScrollControlled: true,
@@ -771,25 +812,22 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
 
   _updateTicketStatus(String status) async {
     //context.showCustomDialog();
-    var result = await TicketViewModel().updateTicketStatus(
-        _ticketDetailData.getOwnOemTicketById?.sId.toString() ?? "", status);
+    var result = await TicketViewModel()
+        .updateTicketStatus(_ticketDetailData?.sId.toString() ?? "", status);
     //Navigator.pop(context);
     result.join(
         (failed) => {console("failed => ${failed.exception}")},
-        (loaded) =>
-            {
+        (loaded) => {
               context.showSuccessSnackBar("Ticket moved to $status tickets!"),
               _getTicketDetailResponse(),
-              setState(() {
-
-              })
+              setState(() {})
             },
         (loading) => {
               console("loading => "),
             });
   }
 
-  void _showAssigneeModal(context, GetTicketDetailResponse response) {
+  void _showAssigneeModal(context, GetOwnOemTicketById response) {
     showModalBottomSheet(
         context: context,
         isScrollControlled: true,
@@ -837,7 +875,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   }
 
   Widget _listFacility(int i, context, ListOwnOemSupportAccounts assignee,
-      GetTicketDetailResponse response) {
+      GetOwnOemTicketById response) {
     return ListTile(
       onTap: () {
         Navigator.pop(context);
@@ -862,8 +900,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   _updateTicketAssignee(String assigneeId) async {
     context.showCustomDialog();
     var result = await TicketViewModel().updateTicketAssignee(
-        _ticketDetailData.getOwnOemTicketById?.sId.toString() ?? "",
-        assigneeId);
+        _ticketDetailData.sId.toString() ?? "", assigneeId);
     Navigator.pop(context);
     result.join(
         (failed) => {console("failed => " + failed.exception.toString())},

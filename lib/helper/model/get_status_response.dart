@@ -1,11 +1,16 @@
 
-import 'package:hive/hive.dart';
 
-part 'get_status_response.g.dart';
+import 'package:floor/floor.dart';
+import 'package:makula_oem/database/type_converters/list_own_oem_open_tickets_model_converter.dart';
+import 'package:makula_oem/database/type_converters/oem_status_model_converter.dart';
+import 'package:makula_oem/database/type_converters/statuses_model_converter.dart';
 
-@HiveType(typeId: 3)
+@entity
 class StatusData {
-  @HiveField(0)
+  @primaryKey
+  int? id;
+
+  @TypeConverters([ListOwnOemOpenTicketsListModelConverter])
   List<ListOwnOemOpenTickets>? listOwnOemOpenTickets;
 
   StatusData({this.listOwnOemOpenTickets});
@@ -29,9 +34,12 @@ class StatusData {
   }
 }
 
-@HiveType(typeId: 4)
+@entity
 class ListOwnOemOpenTickets {
-  @HiveField(0)
+  @primaryKey
+  int? id;
+
+  @TypeConverters([OemStatusModelConverter])
   OemStatus? oem;
 
   ListOwnOemOpenTickets({this.oem});
@@ -48,9 +56,13 @@ class ListOwnOemOpenTickets {
     return data;
   }
 }
-@HiveType(typeId: 5)
+
+@entity
 class OemStatus {
-  @HiveField(0)
+  @primaryKey
+  int? id;
+
+  @TypeConverters([StatusesListModelConverter])
   List<Statuses>? statuses;
 
   OemStatus({this.statuses});
@@ -73,13 +85,9 @@ class OemStatus {
   }
 }
 
-@HiveType(typeId: 6)
 class Statuses {
-  @HiveField(0)
   String? sId;
-  @HiveField(1)
   String? label;
-  @HiveField(2)
   String? color;
 
   Statuses({this.sId, this.label, this.color});

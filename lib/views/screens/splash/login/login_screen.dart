@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:hive/hive.dart';
 import 'package:makula_oem/helper/graphQL/graph_ql_config.dart';
 import 'package:makula_oem/helper/model/get_current_user_details_model.dart';
 import 'package:makula_oem/helper/model/get_status_response.dart';
@@ -10,25 +9,24 @@ import 'package:makula_oem/helper/utils/app_preferences.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
 import 'package:makula_oem/helper/utils/extension_functions.dart';
-import 'package:makula_oem/helper/utils/offline_resources.dart';
 import 'package:makula_oem/helper/utils/routes.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/helper/viewmodels/login_view_model.dart';
+import 'package:makula_oem/main.dart';
 import 'package:makula_oem/views/screens/splash/login/login_provider.dart';
 import 'package:makula_oem/views/widgets/makula_button.dart';
 import 'package:makula_oem/views/widgets/makula_edit_text.dart';
 import 'package:makula_oem/views/widgets/makula_text_view.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../helper/utils/hive_resources.dart';
-
-final TextEditingController _emailController = TextEditingController(text: "azfar.rashid@mmmtechltd.com");
-final TextEditingController _passwordController = TextEditingController(text: "RyCJxRdy0u");
+final TextEditingController _emailController =
+    TextEditingController(text: "azfar.rashid@mmmtechltd.com");
+final TextEditingController _passwordController =
+    TextEditingController(text: "RyCJxRdy0u");
 final FocusNode _emailFieldFocus = FocusNode();
 final FocusNode _passwordFieldFocus = FocusNode();
 late BuildContext _context;
 final appPreferences = AppPreferences();
-
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -253,11 +251,13 @@ void _signIn() async {
 
 _saveUserToken(LoginMobile data) async {
   console("_saveUserToken");
-  HiveResources.loginBox?.put(OfflineResources.LOGIN_TOKEN_RESPONSE, data);
+  // HiveResources.loginBox?.put(OfflineResources.LOGIN_TOKEN_RESPONSE, data);
   //appPreferences.setString(AppPreferences.TOKEN, data.token.toString());
- // appPreferences.setString(
-   //   AppPreferences.REFRESH_TOKEN, data.refreshToken.toString());
+  // appPreferences.setString(
+  //   AppPreferences.REFRESH_TOKEN, data.refreshToken.toString());
   //appPreferences.setBool(AppPreferences.LOGGED_IN, true);
+
+  appDatabase?.loginMobileDao.insertLoginMobileOemIntoDb(data);
   GraphQLConfig.token = data.token.toString();
   GraphQLConfig.refreshToken = data.refreshToken.toString();
   _getCurrentUserDetails();
@@ -280,8 +280,9 @@ _getCurrentUserDetails() async {
 }
 
 _saveUserDetailsInAppPreferences(CurrentUser data) async {
-  HiveResources.currentUserBox?.put(OfflineResources.CURRENT_USER_RESPONSE, data);
+  // HiveResources.currentUserBox?.put(OfflineResources.CURRENT_USER_RESPONSE, data);
   //await appPreferences.setData(AppPreferences.USER, data);
+  appDatabase?.userDao.insertCurrentUserDetailsIntoDb(data);
   _getOEMStatues();
   // if (_context.mounted) {
   //   Navigator.of(_context).pushNamedAndRemoveUntil(
@@ -293,27 +294,29 @@ _getOEMStatues() async {
   try {
     var result = await LoginViewModel().getOEMStatuses();
     result.join(
-            (failed) => {
-          Navigator.pushReplacementNamed(_context, loginScreenRoute),
-          console("failed => ${failed.exception}")
-        },
-            (loaded) => {
-          // console("loaded => " + loaded.data)
-          _saveOEMStatues(loaded.data)
-        },
-            (loading) => {
-          console("loading => "),
-        });
+        (failed) => {
+              Navigator.pushReplacementNamed(_context, loginScreenRoute),
+              console("failed => ${failed.exception}")
+            },
+        (loaded) => {
+              // console("loaded => " + loaded.data)
+              _saveOEMStatues(loaded.data)
+            },
+        (loading) => {
+              console("loading => "),
+            });
   } catch (e) {
     console("_getOEMStatues = $e");
-    if (_context.mounted) Navigator.pushReplacementNamed(_context, loginScreenRoute);
+    if (_context.mounted)
+      Navigator.pushReplacementNamed(_context, loginScreenRoute);
   }
 }
 
 _saveOEMStatues(StatusData response) async {
   console("_saveOEMStatues => ${response.listOwnOemOpenTickets?.length}");
-  HiveResources.oemStatusBox?.put(OfflineResources.OEM_STATUS_RESPONSE, response);
+  // HiveResources.oemStatusBox?.put(OfflineResources.OEM_STATUS_RESPONSE, response);
   //await appPreferences.setData(AppPreferences.STATUES, response);
+  appDatabase?.oemStatusDao.insertGetOemStatusesResponse(response);
   if (_context.mounted) {
     Navigator.of(_context).pushNamedAndRemoveUntil(
         dashboardScreenRoute, (Route<dynamic> route) => false);

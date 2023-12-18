@@ -1,4 +1,14 @@
+
+import 'package:floor/floor.dart';
+import 'package:makula_oem/database/type_converters/current_user_converter.dart';
+import 'package:makula_oem/database/type_converters/list_own_oem_support_accounts_converter.dart';
+
+@entity
 class ListAssignee {
+  @primaryKey
+  String? id;
+
+  @TypeConverters([ListOwnOemSupportAccountsConverter])
   List<ListOwnOemSupportAccounts>? listOwnOemSupportAccounts;
 
   ListAssignee({this.listOwnOemSupportAccounts});
@@ -8,22 +18,24 @@ class ListAssignee {
       listOwnOemSupportAccounts = <ListOwnOemSupportAccounts>[];
       json['listOwnOemSupportAccounts'].forEach((v) {
         listOwnOemSupportAccounts!
-            .add(new ListOwnOemSupportAccounts.fromJson(v));
+            .add(ListOwnOemSupportAccounts.fromJson(v));
       });
     }
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    if (this.listOwnOemSupportAccounts != null) {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    if (listOwnOemSupportAccounts != null) {
       data['listOwnOemSupportAccounts'] =
-          this.listOwnOemSupportAccounts!.map((v) => v.toJson()).toList();
+          listOwnOemSupportAccounts!.map((v) => v.toJson()).toList();
     }
     return data;
   }
 }
 
+@entity
 class ListOwnOemSupportAccounts {
+  @primaryKey
   String? sId;
   String? name;
   String? username;
@@ -70,20 +82,20 @@ class ListOwnOemSupportAccounts {
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['_id'] = this.sId;
-    data['name'] = this.name;
-    data['username'] = this.username;
-    data['role'] = this.role;
-    data['email'] = this.email;
-    data['access'] = this.access;
-    data['userType'] = this.userType;
-    data['userCredentialsSent'] = this.userCredentialsSent;
-    data['isOem'] = this.isOem;
-    data['emailNotification'] = this.emailNotification;
-    data['totalActiveTickets'] = this.totalActiveTickets;
-    data['organizationName'] = this.organizationName;
-    data['organizationType'] = this.organizationType;
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['_id'] = sId;
+    data['name'] = name;
+    data['username'] = username;
+    data['role'] = role;
+    data['email'] = email;
+    data['access'] = access;
+    data['userType'] = userType;
+    data['userCredentialsSent'] = userCredentialsSent;
+    data['isOem'] = isOem;
+    data['emailNotification'] = emailNotification;
+    data['totalActiveTickets'] = totalActiveTickets;
+    data['organizationName'] = organizationName;
+    data['organizationType'] = organizationType;
     return data;
   }
 }

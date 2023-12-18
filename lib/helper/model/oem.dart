@@ -1,5 +1,10 @@
+import 'package:floor/floor.dart';
+
+@entity
 class Oem {
+  @primaryKey
   String? sId;
+
   String? name;
   String? logo;
   String? thumbnail;
@@ -10,7 +15,7 @@ class Oem {
   String? urlOemFacility;
 
   Oem(
-      {sId,
+      { sId,
         name,
         logo,
         thumbnail,

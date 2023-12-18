@@ -44,30 +44,20 @@ class TicketWidget extends StatelessWidget {
       String ticketType, String statusColor) {
     return GestureDetector(
       onTap: () async {
-        var isConnected = await isConnectedToNetwork();
-        if (isConnected) {
-          if (context.mounted) {
-            context.read<TicketProvider>().setTicketItemDetails(_item!);
-            context
-                .read<DashboardProvider>()
-                .setChannelId(_item?.ticketChatChannels![0].toString() ?? "");
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                  builder: (context) =>
-                      TicketDetailScreen(
-                        channelId: _item?.ticketChatChannels![0].toString() ??
-                            "",
-                        ticket: _item!,
-                      )),
+        context.read<TicketProvider>().setTicketItemDetails(_item!);
+        context
+            .read<DashboardProvider>()
+            .setChannelId(_item?.ticketChatChannels![0].toString() ?? "");
+        Navigator.of(context).push(
+          MaterialPageRoute(
+              builder: (context) =>
+                  TicketDetailScreen(
+                    channelId: _item?.ticketChatChannels![0].toString() ??
+                        "",
+                    ticket: _item!,
+                  )),
 
-            );
-          }
-        } else {
-          if (context.mounted) {
-            context.showErrorSnackBar(
-                "Couldn't reach the server. Please check your internet connection");
-          }
-        }
+        );
 
         // Navigator.of(context).pushNamed(ticketDetailScreenRoute);
       },

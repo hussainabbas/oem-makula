@@ -7,6 +7,7 @@ import 'package:makula_oem/helper/utils/constants.dart';
 import 'package:makula_oem/helper/utils/hive_resources.dart';
 import 'package:makula_oem/helper/utils/offline_resources.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
+import 'package:makula_oem/main.dart';
 import 'package:makula_oem/pubnub/pubnub_instance.dart';
 import 'package:makula_oem/views/screens/dashboard/dashboard_provider.dart';
 import 'package:makula_oem/views/screens/dashboard/tabbar/documents/document_screen.dart';
@@ -15,7 +16,7 @@ import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/tickets_screen
 import 'package:provider/provider.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({Key? key}) : super(key: key);
+  const DashboardScreen({super.key});
 
   @override
   _DashboardScreenState createState() => _DashboardScreenState();
@@ -41,7 +42,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     // var userValue =
     //     CurrentUser.fromJson(await appPreferences.getData(AppPreferences.USER));
 
-    var userValue = HiveResources.currentUserBox?.get(OfflineResources.CURRENT_USER_RESPONSE);
+    var userValue = await appDatabase?.userDao.getCurrentUserDetailsFromDb();
     console(
         "userValue.chatToken.toString(), = > ${userValue?.chatToken.toString()}");
 
