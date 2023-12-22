@@ -11,7 +11,7 @@ import 'package:makula_oem/views/widgets/makula_text_view.dart';
 import 'package:video_player/video_player.dart';
 
 class ImagePreviewScreen extends StatefulWidget {
-  const ImagePreviewScreen({Key? key,
+  const ImagePreviewScreen({super.key,
     required var image,
     required String fileName,
     required String channelId,
@@ -25,8 +25,7 @@ class ImagePreviewScreen extends StatefulWidget {
         _documentType = documentType,
         _channelId = channelId,
         _file = file,
-        _messageProvider = messageProvider,
-        super(key: key);
+        _messageProvider = messageProvider;
 
   final _image;
   final String _fileName;

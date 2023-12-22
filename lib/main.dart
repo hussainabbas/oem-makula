@@ -101,7 +101,6 @@ class MyApp extends StatelessWidget {
           //ticketDetailScreenRoute: (context) => const TicketDetailScreen(),
           machineDetailScreenRoute: (context) => const MachineDetailsScreen(),
           addTicketStep0ScreenRoute: (context) => const CreateNewTicket(),
-          procedureScreenRoute: (context) => const ProcedureScreen(),
         },
       ),
     );

@@ -85,7 +85,7 @@ class _$AppDatabase extends AppDatabase {
     Callback? callback,
   ]) async {
     final databaseOptions = sqflite.OpenDatabaseOptions(
-      version: 3,
+      version: 4,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
         await callback?.onConfigure?.call(database);
@@ -119,7 +119,7 @@ class _$AppDatabase extends AppDatabase {
         await database.execute(
             'CREATE TABLE IF NOT EXISTS `ListUserCloseTickets` (`id` INTEGER, `closeTickets` TEXT, PRIMARY KEY (`id`))');
         await database.execute(
-            'CREATE TABLE IF NOT EXISTS `GetOwnOemTicketById` (`sId` TEXT, `ticketId` TEXT, `title` TEXT, `user` TEXT, `assignee` TEXT, `facility` TEXT, `machine` TEXT, `description` TEXT, `notes` TEXT, `chat` TEXT, `status` TEXT, `createdAt` TEXT, `ticketChatChannels` TEXT, PRIMARY KEY (`sId`))');
+            'CREATE TABLE IF NOT EXISTS `GetOwnOemTicketById` (`sId` TEXT, `ticketId` TEXT, `title` TEXT, `user` TEXT, `assignee` TEXT, `facility` TEXT, `machine` TEXT, `description` TEXT, `notes` TEXT, `chat` TEXT, `status` TEXT, `createdAt` TEXT, `ticketChatChannels` TEXT, `procedures` TEXT, PRIMARY KEY (`sId`))');
         await database.execute(
             'CREATE TABLE IF NOT EXISTS `ListOpenTickets` (`id` INTEGER, `openTicket` TEXT, PRIMARY KEY (`id`))');
         await database.execute(
@@ -128,6 +128,10 @@ class _$AppDatabase extends AppDatabase {
             'CREATE TABLE IF NOT EXISTS `ListAssignee` (`id` TEXT, `listOwnOemSupportAccounts` TEXT, PRIMARY KEY (`id`))');
         await database.execute(
             'CREATE TABLE IF NOT EXISTS `ListOwnOemSupportAccounts` (`sId` TEXT, `name` TEXT, `username` TEXT, `role` TEXT, `email` TEXT, `access` INTEGER, `userType` TEXT, `userCredentialsSent` INTEGER, `isOem` INTEGER, `emailNotification` INTEGER, `totalActiveTickets` INTEGER, `organizationName` TEXT, `organizationType` TEXT, PRIMARY KEY (`sId`))');
+        await database.execute(
+            'CREATE TABLE IF NOT EXISTS `Procedures` (`id` INTEGER, `procedure` TEXT, PRIMARY KEY (`id`))');
+        await database.execute(
+            'CREATE TABLE IF NOT EXISTS `Procedure` (`sId` TEXT, `name` TEXT, `description` TEXT, `state` TEXT, `createdAt` TEXT, `updatedAt` TEXT, `pdfUrl` TEXT, PRIMARY KEY (`sId`))');
 
         await callback?.onCreate?.call(database, version);
       },
@@ -671,7 +675,8 @@ class _$GetTicketDetailResponseDao extends GetTicketDetailResponseDao {
                   'status': item.status,
                   'createdAt': item.createdAt,
                   'ticketChatChannels':
-                      _listStringConverter2.encode(item.ticketChatChannels)
+                      _listStringConverter2.encode(item.ticketChatChannels),
+                  'procedures': _listProceduresConverter.encode(item.procedures)
                 });
 
   final sqflite.DatabaseExecutor database;
@@ -763,6 +768,8 @@ final _facilityConverter = FacilityConverter();
 final _machineInformationConverter = MachineInformationConverter();
 final _listStringConverter = ListStringConverter();
 final _listStringConverter2 = ListStringConverter2();
+final _listProceduresConverter = ListProceduresConverter();
+final _procedureConverter = ProcedureConverter();
 final _listOpenTicketConverter = ListOpenTicketConverter();
 final _listOwnOemSupportAccountsConverter =
     ListOwnOemSupportAccountsConverter();

@@ -11,6 +11,7 @@ import 'package:makula_oem/helper/model/get_status_response.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
 import 'package:makula_oem/main.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 extension Keyboard on BuildContext {
   void hideKeyboard() {
@@ -417,5 +418,97 @@ Future<bool> isConnectedToNetwork() async {
     return false;
   } else {
     return true;
+  }
+}
+
+String getFileType(String type) {
+  if (type.contains("image")) {
+    return "IMAGE";
+  } else {
+    return "DOCUMENT";
+  }
+}
+
+String getFileSizeInKBs(String size) {
+  int bytes = int.parse(size);
+  return "${(bytes / 1024).toStringAsFixed(2)}KB";
+}
+
+
+String convertStringDateToDDMMYYYY(String date) {
+  final parsedDate = DateTime.parse(date);
+  final dateFormatter = DateFormat('dd/MM/yyyy', 'en_US');
+  final formattedDate = dateFormatter.format(parsedDate);
+  return formattedDate;
+}
+
+String generateHtmlString(String description) {
+  try {
+    final List<dynamic> paragraphs = json.decode(description);
+    String htmlString = '<body>';
+
+    for (final paragraph in paragraphs) {
+      final String paragraphType = paragraph['type'];
+      final List<dynamic> children = paragraph['children'];
+      final String alignment = paragraph['align'] ?? 'left';
+
+      if (paragraphType == 'numbered-list') {
+        htmlString += '<ol>';
+        for (final listItem in children) {
+          final String listItemText = listItem['children'][0]['text'];
+          htmlString += '<li>$listItemText</li>';
+        }
+        htmlString += '</ol>';
+      } else if (paragraphType == 'bulleted-list') {
+        htmlString += '<ul>';
+        for (final listItem in children) {
+          final String listItemText = listItem['children'][0]['text'];
+          htmlString += '<li>$listItemText</li>';
+        }
+        htmlString += '</ul>';
+      } else if (paragraphType == 'paragraph') {
+        htmlString += '<p style="text-align: $alignment;">';
+
+        for (final child in children) {
+          final String text = child['text'];
+          String style = '';
+
+          if (child.containsKey('strikethrough') &&
+              child['strikethrough'] == true) {
+            style += 'text-decoration: line-through;';
+          }
+          if (child.containsKey('italic') && child['italic'] == true) {
+            style += 'font-style: italic;';
+          }
+          if (child.containsKey('bold') && child['bold'] == true) {
+            style += 'font-weight: bold;';
+          }
+          if (child.containsKey('underline') && child['underline'] == true) {
+            style += 'text-decoration: underline;';
+          }
+
+          if (style.isNotEmpty) {
+            htmlString += '<span style="$style">$text</span>';
+          } else {
+            htmlString += text;
+          }
+        }
+
+        htmlString += '</p>';
+      }
+    }
+
+    htmlString += '</body>';
+    return htmlString;
+  } catch (e) {
+    return description;
+  }
+}
+
+launchURL(String url) async {
+  if (await canLaunch(url)) {
+    await launch(url);
+  } else {
+    throw 'Could not launch $url';
   }
 }

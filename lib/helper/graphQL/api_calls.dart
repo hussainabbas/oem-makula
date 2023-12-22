@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 String loginMobileOem = '''
               mutation loginMobileOem (\$input: userCredentials) {
                   loginMobileOem (input: \$input)
@@ -27,6 +29,8 @@ const String currentUser = r'''
         chatUUIDMetadata
         chatKeys
         chatUUID
+        notificationChannel
+        notificationChannelGroupName
       }
     }
   ''';
@@ -36,7 +40,6 @@ const String newChatToken = '''
       getNewChatToken
     }
   ''';
-
 
 const String oemStatuses = '''
     query ListOwnOemOpenTickets {
@@ -225,6 +228,17 @@ String getOwnOemTicketById = """
                 isMyTicket
                 ticketChatChannels
                 ticketInternalNotesChatChannels
+                procedures {
+                  procedure {
+                      _id
+                      name
+                      description
+                      state
+                      createdAt
+                      updatedAt
+                      pdfUrl
+                  }
+               }
                 assignee {
                   _id
                   name 
@@ -558,4 +572,175 @@ String deleteOwnOemSubmissionById = '''
               mutation deleteOwnOemSubmissionById (\$submissionId: ID!) {
                   deleteOwnOemSubmissionById (submissionId: \$submissionId)
               },
+          ''';
+
+String listOwnOemProcedureTemplates = '''
+             query ListOwnOemProcedureTemplates {
+    listOwnOemProcedureTemplates(params: { limit: 100 }) {
+        _id
+        name
+        description
+        createdAt
+        updatedAt 
+        signatures {
+            _id
+            signatoryTitle
+        }
+        children {
+            _id
+            type
+            name
+            description
+            isRequired
+            options {
+                _id
+                name
+            }
+            tableOption {
+                _id
+                rowCount
+                columns {
+                    _id
+                    heading
+                    width
+                }
+            }
+            attachments {
+                _id
+                name
+                type
+                url
+                size
+            }
+            children {
+                _id
+                type
+                name
+                description
+                isRequired
+                options {
+                    _id
+                    name
+                }
+                tableOption {
+                    _id
+                    rowCount
+                    columns {
+                        _id
+                        heading
+                        width
+                    }
+                }
+                attachments {
+                    _id
+                    name
+                    type
+                    url
+                    size
+                }
+            }
+        }
+        pageHeader {
+            _id
+            name
+            type
+            url
+            size
+        }
+    }
+}
+          ''';
+
+
+
+String getOwnOemProcedureById = ''' 
+              query GetOwnOemProcedureById(\$id: ID!) {
+                getOwnOemProcedureById(id: \$id) {
+                    _id
+                    name
+                    description
+                    state
+                    createdAt
+                    updatedAt
+                    pdfUrl
+                    signatures {
+                        _id
+                        signatoryTitle
+                        name
+                        date
+                        signatureUrl
+                    }
+                    children {
+                        _id
+                        type
+                        name
+                        description
+                        isRequired
+                        value
+                        options {
+                            _id
+                            name
+                        }
+                        tableOption {
+                            _id
+                            rowCount
+                            columns {
+                                _id
+                                heading
+                                width
+                            }
+                        }
+                        attachments {
+                            _id
+                            name
+                            type
+                            url
+                            size
+                        }
+                        children {
+                            _id
+                            type
+                            name
+                            description
+                            isRequired
+                            value
+                            options {
+                                _id
+                                name
+                            }
+                            tableOption {
+                                _id
+                                rowCount
+                                columns {
+                                    _id
+                                    heading
+                                    width
+                                }
+                            }
+                            attachments {
+                                _id
+                                name
+                                type
+                                url
+                                size
+                            }
+                        }
+                    }
+                    pageHeader {
+                        _id
+                        name
+                        type
+                        url
+                        size
+                    }
+                }
+             }
+
+          ''';
+
+String ATTACH_PROCEDURE_TO_WORK_ORDER = ''' 
+            mutation AttachOwnOemProcedureToWorkOrder(\$input: InputAttachProcedureToWorkOrder!) {
+    attachOwnOemProcedureToWorkOrder(input: \$input)
+}
+ 
           ''';

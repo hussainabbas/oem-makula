@@ -1,5 +1,6 @@
 import 'package:floor/floor.dart';
-import 'package:makula_oem/database/type_converters/get_oem_ticket_by_id_converter.dart';
+import 'package:makula_oem/database/type_converters/list_procedures_converter.dart';
+import 'package:makula_oem/database/type_converters/procedure_converter.dart';
 
 import '../../database/type_converters/current_user_converter.dart';
 import '../../database/type_converters/facility_converter.dart';
@@ -41,33 +42,36 @@ class GetOwnOemTicketById {
   @TypeConverters([ListStringConverter2])
   List<String>? ticketChatChannels;
 
-  GetOwnOemTicketById({
-    this.sId,
-    this.ticketId,
-    this.title,
-    this.user,
-    this.assignee,
-    // oem,
-    this.facility,
-    this.description,
-    this.notes,
-    this.chat,
-    this.status,
-    this.createdAt,
-    this.machine,
-    this.ticketChatChannels
-  });
+  @TypeConverters([ListProceduresConverter])
+  List<Procedures>? procedures;
+
+  GetOwnOemTicketById(
+      {this.sId,
+      this.ticketId,
+      this.title,
+      this.user,
+      this.assignee,
+      // oem,
+      this.facility,
+      this.description,
+      this.notes,
+      this.chat,
+      this.status,
+      this.createdAt,
+      this.machine,
+      this.ticketChatChannels});
 
   GetOwnOemTicketById.fromJson(Map<String, dynamic> json) {
     sId = json['_id'];
     ticketId = json['ticketId'];
     title = json['title'];
     user = json['user'] != null ? CurrentUser.fromJson(json['user']) : null;
-    assignee = json['assignee'] != null ? CurrentUser.fromJson(json['assignee']) : null;
-    // // oem = json['oem'] != null ? Oem.fromJson(json['oem']) : null;
-    facility = json['facility'] != null
-        ? Facility.fromJson(json['facility'])
+    assignee = json['assignee'] != null
+        ? CurrentUser.fromJson(json['assignee'])
         : null;
+    // // oem = json['oem'] != null ? Oem.fromJson(json['oem']) : null;
+    facility =
+        json['facility'] != null ? Facility.fromJson(json['facility']) : null;
 
     machine = json['machine'] != null
         ? MachineInformation.fromJson(json['machine'])
@@ -78,6 +82,13 @@ class GetOwnOemTicketById {
     status = json['status'];
     createdAt = json['createdAt'];
     ticketChatChannels = json['ticketChatChannels'].cast<String>();
+
+    if (json['procedures'] != null) {
+      procedures = <Procedures>[];
+      json['procedures'].forEach((v) {
+        procedures!.add(Procedures.fromJson(v));
+      });
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -104,6 +115,78 @@ class GetOwnOemTicketById {
     data['createdAt'] = createdAt;
     data['machine'] = machine;
     data['ticketChatChannels'] = ticketChatChannels;
+
+    if (procedures != null) {
+      data['procedures'] = procedures!.map((v) => v.toJson()).toList();
+    }
+    return data;
+  }
+}
+
+@entity
+class Procedures {
+  @primaryKey
+  int? id;
+
+  @TypeConverters([ProcedureConverter])
+  Procedure? procedure;
+
+  Procedures({this.procedure, this.id});
+
+  Procedures.fromJson(Map<String, dynamic> json) {
+    procedure = json['procedure'] != null
+        ? Procedure.fromJson(json['procedure'])
+        : null;
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    if (procedure != null) {
+      data['procedure'] = procedure!.toJson();
+    }
+    return data;
+  }
+}
+
+@entity
+class Procedure {
+  @primaryKey
+  String? sId;
+  String? name;
+  String? description;
+  String? state;
+  String? createdAt;
+  String? updatedAt;
+  String? pdfUrl;
+
+  Procedure(
+      {this.sId,
+      this.name,
+      this.description,
+      this.state,
+      this.createdAt,
+      this.updatedAt,
+      this.pdfUrl});
+
+  Procedure.fromJson(Map<String, dynamic> json) {
+    sId = json['_id'];
+    name = json['name'];
+    description = json['description'];
+    state = json['state'];
+    createdAt = json['createdAt'];
+    updatedAt = json['updatedAt'];
+    pdfUrl = json['pdfUrl'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['_id'] = sId;
+    data['name'] = name;
+    data['description'] = description;
+    data['state'] = state;
+    data['createdAt'] = createdAt;
+    data['updatedAt'] = updatedAt;
+    data['pdfUrl'] = pdfUrl;
     return data;
   }
 }

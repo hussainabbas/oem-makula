@@ -1,27 +1,35 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:makula_oem/helper/model/chat_message_model.dart';
 import 'package:makula_oem/helper/model/get_current_user_details_model.dart';
 import 'package:makula_oem/helper/model/get_own_oem_ticket_by_id_response.dart';
+import 'package:makula_oem/helper/model/get_procedure_by_id_response.dart';
+import 'package:makula_oem/helper/model/get_procedure_templates_response.dart';
 import 'package:makula_oem/helper/model/get_status_response.dart';
 import 'package:makula_oem/helper/model/get_ticket_detail_response.dart';
 import 'package:makula_oem/helper/model/list_assignee_response.dart';
 import 'package:makula_oem/helper/model/open_ticket_model.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
+import 'package:makula_oem/helper/utils/context_function.dart';
 import 'package:makula_oem/helper/utils/extension_functions.dart';
-import 'package:makula_oem/helper/utils/routes.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/helper/viewmodels/tickets_view_model.dart';
 import 'package:makula_oem/main.dart';
 import 'package:makula_oem/pubnub/message_provider.dart';
 import 'package:makula_oem/pubnub/pubnub_instance.dart';
 import 'package:makula_oem/views/screens/dashboard/addNewTicket/viewmodel/add_ticket_view_model.dart';
+import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/details/procedure_screen.dart';
+import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/details/procedure_viewmodel.dart';
+import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/provider/procedure_provider.dart';
 import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/provider/ticket_provider.dart';
+import 'package:makula_oem/views/screens/modals/select_a_procedure_modal.dart';
 import 'package:makula_oem/views/widgets/makula_text_view.dart';
 import 'package:provider/provider.dart';
-import 'package:readmore/readmore.dart';
 import 'package:timelines/timelines.dart';
 
 class TicketOverviewScreen extends StatefulWidget {
@@ -39,6 +47,8 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   //OpenTicket _ticket = OpenTicket();
   GetOwnOemTicketById _ticketDetailData = GetOwnOemTicketById();
   CurrentUser _currentUser = CurrentUser();
+  GetProcedureTemplatesResponse? _getProcedureTemplatesResponse =
+      GetProcedureTemplatesResponse();
 
   // final appPreferences = AppPreferences();
   final TextEditingController _messageController = TextEditingController();
@@ -50,9 +60,12 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   var _status = "";
   late StatusData? oemStatus;
 
+  bool isConnected = false;
+
   //late TicketProvider _tickerProvider;
 
   _getOEMStatuesValueFromSP() async {
+    isConnected = await isConnectedToNetwork();
     var abc = await appDatabase?.oemStatusDao.findAllGetOemStatusesResponses();
     oemStatus = abc?[0];
   }
@@ -62,6 +75,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
     _ticketProvider = Provider.of<TicketProvider>(context, listen: false);
     _getValuesFromSP();
     _getOEMStatuesValueFromSP();
+
     //_addTextListeners();
     super.initState();
   }
@@ -72,7 +86,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
     // _currentUser = HiveResources.currentUserBox!
     //     .get(OfflineResources.CURRENT_USER_RESPONSE)!;
     _getTicketDetailResponse();
-    console("message => ${_currentUser.name}");
+    console("_ticket => ${widget._ticket?.sId}");
   }
 
   @override
@@ -167,6 +181,65 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   _getListAssignee(ListAssignee listAssignee) async {
     responseAssignee = listAssignee;
     await appDatabase?.getListAssignee.insertListAssignee(listAssignee);
+
+    await getProcedureTemplates();
+  }
+
+  getProcedureTemplates() async {
+    var isConnected = await isConnectedToNetwork();
+    if (isConnected) {
+      var result = await ProcedureViewModel().getListProcedureTemplates();
+      result.join(
+          (failed) => {console("failed => ${failed.exception}")},
+          (loaded) => {
+                _observerGetProcedureTemplatesResponse(loaded.data),
+              },
+          (loading) => {
+                console("loading => "),
+              });
+    } else {
+      //responseAssignee = (await appDatabase?.getListAssignee.findAssignee())!;
+    }
+  }
+
+  _observerGetProcedureTemplatesResponse(
+      GetProcedureTemplatesResponse response) {
+    _getProcedureTemplatesResponse = response;
+  }
+
+
+  _getProcedureById(String procedureId) async {
+    var isConnected = await isConnectedToNetwork();
+    if (context.mounted) context.showCustomDialog();
+    if (isConnected) {
+      var result = await ProcedureViewModel().getProcedureById(procedureId);
+      if (context.mounted) Navigator.pop(context);
+      result.join(
+              (failed) => {console("failed => ${failed.exception}")},
+              (loaded) => {
+               console("_getProcedureById -> Response => ${loaded.data}"), _observerGetProcedureByIdResponse(loaded.data),
+          },
+              (loading) => {
+            console("loading => "),
+          });
+    }
+  }
+
+  _observerGetProcedureByIdResponse(GetProcedureByIdResponse response) {
+    ListOwnOemProcedureTemplates? templates = response.getOwnOemProcedureById;
+    console("_observerGetProcedureByIdResponse => ${response.getOwnOemProcedureById?.state}");
+    console("_observerGetProcedureByIdResponse => ${response.getOwnOemProcedureById?.pdfUrl}");
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+          builder: (context) =>
+              ProcedureScreen(
+                templates: templates,
+                state: response.getOwnOemProcedureById?.state,
+                pdfUrl: response.getOwnOemProcedureById?.pdfUrl,
+              )),
+
+    );
   }
 
   Widget _ticketOverviewContent() {
@@ -193,7 +266,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                       ),
                       TextView(
                           text:
-                              "${_ticketDetailData?.title?.capitalizeString()}",
+                              "${_ticketDetailData.title?.capitalizeString()}",
                           textColor: textColorDark,
                           textFontWeight: FontWeight.w600,
                           fontSize: 17),
@@ -202,8 +275,8 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                       ),
                       TextView(
                           text:
-                              "${_ticketDetailData?.machine?.name?.capitalizeString()} "
-                              " •  ${_ticketDetailData?.machine?.serialNumber.toString()}",
+                              "${_ticketDetailData.machine?.name?.capitalizeString()} "
+                              " •  ${_ticketDetailData.machine?.serialNumber.toString()}",
                           textColor: textColorLight,
                           textFontWeight: FontWeight.w500,
                           fontSize: 12),
@@ -214,16 +287,126 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                       const SizedBox(
                         height: 28,
                       ),
-                      ReadMoreText(
-                        _ticketDetailData?.description.toString() ?? "",
-                        colorClickableText: primaryColor,
-                        trimCollapsedText: '...Read more',
-                        trimExpandedText: ' Read less',
-                        style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500),
+                      Html(
+                        data: generateHtmlString(
+                            _ticketDetailData.description ?? ""),
+                        // You can customize styling using various parameters in FlutterHtml
                       ),
+                      // ReadMoreText(
+                      //   _ticketDetailData.description.toString() ?? "",
+                      //   colorClickableText: primaryColor,
+                      //   trimCollapsedText: '...Read more',
+                      //   trimExpandedText: ' Read less',
+                      //   style: const TextStyle(
+                      //       fontFamily: 'Manrope',
+                      //       fontSize: 14,
+                      //       fontWeight: FontWeight.w500),
+                      // ),
+
+                      const SizedBox(
+                        height: 16,
+                      ),
+
+                      Container(
+                        decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(width: 0.5, color: Colors.grey)),
+                        child: ExpansionTile(
+                          shape: Border.all(width: 0),
+                          title: Row(
+                            children: [
+                              SvgPicture.asset(
+                                  "assets/images/ic_procedures.svg"),
+                              const SizedBox(
+                                width: 10,
+                              ),
+                              const Expanded(
+                                  child: TextView(
+                                      text: "Procedures",
+                                      textColor: Colors.black,
+                                      textFontWeight: FontWeight.bold,
+                                      fontSize: 12)),
+                            ],
+                          ),
+                          children: [
+                            if (_ticketDetailData.procedures?.isNotEmpty == true)
+                            ListView.builder(
+                              shrinkWrap: true,
+                              padding: EdgeInsets.zero,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _ticketDetailData.procedures?.length,
+                              itemBuilder: (context, index) {
+                                var item = _ticketDetailData.procedures?[index];
+                                console("procedures => ${item?.procedure?.sId}");
+                                return ListTile(
+                                  onTap: () {
+                                    Provider.of<ProcedureProvider>(context, listen: false).clearFieldValues();
+                                    _getProcedureById(item?.procedure?.sId ?? "");
+                                  },
+                                  title: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      TextView(
+                                          text: item?.procedure?.name ?? "",
+                                          textColor: textColorLight,
+                                          textFontWeight: FontWeight.normal,
+                                          fontSize: 12),
+                                      Container(
+                                          decoration: BoxDecoration(
+                                              color: item?.procedure?.state ==
+                                                      "NOT_STARTED"
+                                                  ? lightGray
+                                                  : closedContainerColor,
+                                              borderRadius:
+                                                  BorderRadius.circular(8)),
+                                          alignment: Alignment.center,
+                                          padding: const EdgeInsets.fromLTRB(
+                                              8, 4, 4, 5),
+                                          child: TextView(
+                                              align: TextAlign.center,
+                                              text: item?.procedure?.state
+                                                      ?.replaceAll("_", " ") ??
+                                                  "",
+                                              textColor:
+                                                  item?.procedure?.state ==
+                                                          "NOT_STARTED"
+                                                      ? textColorLight
+                                                      : closedStatusColor,
+                                              textFontWeight: FontWeight.normal,
+                                              fontSize: 12)),
+                                    ],
+                                  ),
+                                  trailing: const Icon(Icons.more_horiz),
+                                );
+                              },
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                SelectProcedureModal.show(
+                                    context,
+                                    _getProcedureTemplatesResponse,
+                                    widget._ticket.sId ?? "", () {
+                                      console("Callback");
+                                      setState(() {});
+                                });
+                                //Navigator.pushNamed(context, procedureScreenRoute);
+                              },
+                              child: Container(
+                                  padding: const EdgeInsets.only(
+                                      bottom: 8, left: 16),
+                                  alignment: Alignment.centerLeft,
+                                  width: context.fullWidth(),
+                                  child: TextView(
+                                      text: "+ Add Procedure instance",
+                                      textColor: primaryColor,
+                                      textFontWeight: FontWeight.bold,
+                                      fontSize: 12)),
+                            ),
+                          ],
+                        ),
+                      )
 
                       // const SizedBox(
                       //   height: 28,
@@ -238,10 +421,11 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                   ),
                 ),
                 //_ticketDetailWidgets(response),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                  child: _internalNotesFormPN(),
-                ),
+                if (isConnected)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                    child: _internalNotesFormPN(),
+                  ),
               ],
             ),
           ),
@@ -251,8 +435,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
           child: line(context),
         ),
 
-
-        _status != "Closed"
+        _status != "Closed" && isConnected
             ? Container(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -340,13 +523,17 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
     var isConnected = await isConnectedToNetwork();
     if (isConnected) {
       if (_messageController.text.isNotEmpty) {
-        context.showCustomDialog();
+        if (context.mounted) {
+          context.showCustomDialog();
+        }
         await messageProvider!.sendMessage(
             widget._ticket.ticketInternalNotesChatChannels![0],
             _messageController.text);
         _messageController.text = "";
-        Navigator.pop(context);
-        context.showSuccessSnackBar("Internal Note Saved");
+        if (context.mounted) {
+          Navigator.pop(context);
+          context.showSuccessSnackBar("Internal Note Saved");
+        }
       }
     }
   }
@@ -478,7 +665,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
             textColor: textColorLight,
           ),
           TextView(
-            text: _ticketDetailData?.createdAt?.formatDate(
+            text: _ticketDetailData.createdAt?.formatDate(
                     dateFormatYYYMMddTHHmmssSSSZ, dateFormatYYYYddMM) ??
                 "",
             fontSize: 13,
@@ -502,7 +689,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
             textColor: textColorLight,
           ),
           TextView(
-            text: ticketID(_ticketDetailData?.ticketId.toString() ?? ""),
+            text: ticketID(_ticketDetailData.ticketId.toString() ?? ""),
             fontSize: 13,
             textFontWeight: FontWeight.w500,
             textColor: textColorDark,
@@ -813,7 +1000,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   _updateTicketStatus(String status) async {
     //context.showCustomDialog();
     var result = await TicketViewModel()
-        .updateTicketStatus(_ticketDetailData?.sId.toString() ?? "", status);
+        .updateTicketStatus(_ticketDetailData.sId.toString() ?? "", status);
     //Navigator.pop(context);
     result.join(
         (failed) => {console("failed => ${failed.exception}")},
@@ -903,7 +1090,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
         _ticketDetailData.sId.toString() ?? "", assigneeId);
     Navigator.pop(context);
     result.join(
-        (failed) => {console("failed => " + failed.exception.toString())},
+        (failed) => {console("failed => ${failed.exception}")},
         (loaded) => {
               context.showSuccessSnackBar("Ticket assigned successfully"),
               setState(() {})
@@ -912,6 +1099,8 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
               console("loading => "),
             });
   }
+
+
 
   @override
   void dispose() {

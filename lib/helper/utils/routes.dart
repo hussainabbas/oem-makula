@@ -9,4 +9,3 @@ const addTicketStep0ScreenRoute = "/addTicketStep0Screen";
 const addTicketStep2ScreenRoute = "/addTicketStep2Screen";
 const addTicketStep3ScreenRoute = "/addTicketStep3Screen";
 const imagePreviewScreenRoute = "/imagePreviewScreen";
-const procedureScreenRoute = "/procedureScreen";

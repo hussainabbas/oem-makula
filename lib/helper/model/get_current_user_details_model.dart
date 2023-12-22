@@ -19,7 +19,6 @@ class CurrentUser {
   String? notificationChannel;
   String? chatUUID;
 
-
   @TypeConverters([ChatKeysConverter])
   ChatKeys? chatKeys;
 

@@ -3,6 +3,7 @@ class Assets {
   Assets._();
 
   static const String addNewTicketCreateNewTicketScreen = 'lib/views/screens/dashboard/addNewTicket/create_new_ticket_screen.dart';
+  static const String assetsImagesUploadFile = 'assets/images/upload_file.png';
   static const String convertersChatKeysConverter = 'lib/helper/model/converters/chat_keys_converter.dart';
   static const String dashboardDashboardProvider = 'lib/views/screens/dashboard/dashboard_provider.dart';
   static const String dashboardDashboardScreen = 'lib/views/screens/dashboard/dashboard_screen.dart';
@@ -27,6 +28,8 @@ class Assets {
   static const String detailsMachineDocumentationTabScreen = 'lib/views/screens/dashboard/tabbar/machines/details/machine_documentation_tab_screen.dart';
   static const String detailsMachineHistoryTabScreen = 'lib/views/screens/dashboard/tabbar/machines/details/machine_history_tab_screen.dart';
   static const String detailsProcedureScreen = 'lib/views/screens/dashboard/tabbar/tickets/details/procedure_screen.dart';
+  static const String detailsProcedureViewmodel = 'lib/views/screens/dashboard/tabbar/tickets/details/procedure_viewmodel.dart';
+  static const String detailsSignatureProcedureScreen = 'lib/views/screens/dashboard/tabbar/tickets/details/signature_procedure_screen.dart';
   static const String detailsTicketDetailScreen = 'lib/views/screens/dashboard/tabbar/tickets/details/ticket_detail_screen.dart';
   static const String detailsTicketOverviewScreen = 'lib/views/screens/dashboard/tabbar/tickets/details/ticket_overview_screen.dart';
   static const String documentsCreateDocumentScreen = 'lib/views/screens/dashboard/tabbar/documents/create_document_screen.dart';
@@ -54,9 +57,11 @@ class Assets {
   static const String imagesDeleteDocument = 'assets/images/delete_document.svg';
   static const String imagesDocumentSelected = 'assets/images/document_selected.svg';
   static const String imagesErrors = 'assets/images/errors.svg';
+  static const String imagesGhostButton = 'assets/images/ghost_button.svg';
   static const String imagesIcAssigneeClosed = 'assets/images/ic_assignee_closed.svg';
   static const String imagesIcBack = 'assets/images/ic_back.svg';
   static const String imagesIcCaretColapse = 'assets/images/ic-caret-colapse.svg';
+  static const String imagesIcDelete = 'assets/images/ic-delete.svg';
   static const String imagesIcDocs = 'assets/images/ic_docs.svg';
   static const String imagesIcFolder = 'assets/images/ic-folder.svg';
   static const String imagesIcFolderFilled = 'assets/images/ic-folder-filled.svg';
@@ -64,6 +69,7 @@ class Assets {
   static const String imagesIcMachinesFilled = 'assets/images/ic-machines-filled.svg';
   static const String imagesIcNext = 'assets/images/ic_next.svg';
   static const String imagesIcPdfIcons = 'assets/images/ic_pdf_icons.svg';
+  static const String imagesIcProcedures = 'assets/images/ic_procedures.svg';
   static const String imagesIcSend = 'assets/images/ic-send.svg';
   static const String imagesIcSettings = 'assets/images/ic-settings.svg';
   static const String imagesIcSettingsFilled = 'assets/images/ic-settings-filled.svg';
@@ -80,6 +86,7 @@ class Assets {
   static const String imagesNoMachineDocumentation = 'assets/images/no_machine_documentation.svg';
   static const String imagesNoMachineHistory = 'assets/images/no_machine_history.svg';
   static const String imagesNoNotes = 'assets/images/no-notes.svg';
+  static const String imagesNotification = 'assets/images/notification.svg';
   static const String imagesPictureCircle = 'assets/images/picture_circle.svg';
   static const String imagesQrShadow = 'assets/images/qr_shadow.svg';
   static const String imagesQrShadowBorder = 'assets/images/qr_shadow_border.svg';
@@ -93,11 +100,14 @@ class Assets {
   static const String imagesTicket = 'assets/images/ticket.svg';
   static const String imagesTickets = 'assets/images/tickets.svg';
   static const String imagesTotalTickets = 'assets/images/total_tickets.svg';
+  static const String imagesUploadFile = 'assets/images/upload-file.svg';
   static const String libMain = 'lib/main.dart';
   static const String loginLoginProvider = 'lib/views/screens/splash/login/login_provider.dart';
   static const String loginLoginScreen = 'lib/views/screens/splash/login/login_screen.dart';
   static const String machinesMachinesScreen = 'lib/views/screens/dashboard/tabbar/machines/machines_screen.dart';
+  static const String modalsSelectAProcedureModal = 'lib/views/screens/modals/select_a_procedure_modal.dart';
   static const String modelAddNewTicketResponse = 'lib/helper/model/add_new_ticket_response.dart';
+  static const String modelAttachProcedureToWorkOrderResponse = 'lib/helper/model/attach_procedure_to_work_order_response.dart';
   static const String modelChatKeys = 'lib/helper/model/chat_keys.dart';
   static const String modelChatMessageModel = 'lib/helper/model/chat_message_model.dart';
   static const String modelChildDocumentModel = 'lib/helper/model/child_document_model.dart';
@@ -120,6 +130,8 @@ class Assets {
   static const String modelGetMachinesResponse = 'lib/helper/model/get_machines_response.dart';
   static const String modelGetNewChatToken = 'lib/helper/model/get_new_chat_token.dart';
   static const String modelGetOwnOemTicketByIdResponse = 'lib/helper/model/get_own_oem_ticket_by_id_response.dart';
+  static const String modelGetProcedureByIdResponse = 'lib/helper/model/get_procedure_by_id_response.dart';
+  static const String modelGetProcedureTemplatesResponse = 'lib/helper/model/get_procedure_templates_response.dart';
   static const String modelGetStatusResponse = 'lib/helper/model/get_status_response.dart';
   static const String modelGetTicketDetailResponse = 'lib/helper/model/get_ticket_detail_response.dart';
   static const String modelListAllMachines = 'lib/helper/model/list_all_machines.dart';
@@ -160,15 +172,18 @@ class Assets {
   static const String typeConvertersListAssigneeDao = 'lib/database/type_converters/list_assignee_dao.dart';
   static const String typeConvertersListOwnOemOpenTicketsModelConverter = 'lib/database/type_converters/list_own_oem_open_tickets_model_converter.dart';
   static const String typeConvertersListOwnOemSupportAccountsConverter = 'lib/database/type_converters/list_own_oem_support_accounts_converter.dart';
+  static const String typeConvertersListProceduresConverter = 'lib/database/type_converters/list_procedures_converter.dart';
   static const String typeConvertersListStringConverter = 'lib/database/type_converters/list_string_converter.dart';
   static const String typeConvertersMachineInformationConverter = 'lib/database/type_converters/machine_information_converter.dart';
   static const String typeConvertersOemConverter = 'lib/database/type_converters/oem_converter.dart';
   static const String typeConvertersOemStatusModelConverter = 'lib/database/type_converters/oem_status_model_converter.dart';
   static const String typeConvertersOpenTicketConverter = 'lib/database/type_converters/open_ticket_converter.dart';
+  static const String typeConvertersProcedureConverter = 'lib/database/type_converters/procedure_converter.dart';
   static const String typeConvertersStatusesModelConverter = 'lib/database/type_converters/statuses_model_converter.dart';
   static const String utilsAppPreferences = 'lib/helper/utils/app_preferences.dart';
   static const String utilsColors = 'lib/helper/utils/colors.dart';
   static const String utilsConstants = 'lib/helper/utils/constants.dart';
+  static const String utilsContextFunction = 'lib/helper/utils/context_function.dart';
   static const String utilsDocumentType = 'lib/helper/utils/document_type.dart';
   static const String utilsExtensionFunctions = 'lib/helper/utils/extension_functions.dart';
   static const String utilsFlavorConst = 'lib/helper/utils/flavor_const.dart';
@@ -182,6 +197,8 @@ class Assets {
   static const String viewmodelsTicketsViewModel = 'lib/helper/viewmodels/tickets_view_model.dart';
   static const String viewsCustomExpansionTitle = 'lib/helper/views/custom_expansion_title.dart';
   static const String viewsSliverAppBarDelegate = 'lib/helper/views/sliver_app_bar_delegate.dart';
+  static const String widgetsCustomElevatedButton = 'lib/views/widgets/custom_elevated_button.dart';
+  static const String widgetsDotterBorder = 'lib/views/widgets/dotter_border.dart';
   static const String widgetsMakulaAppBarGray = 'lib/views/widgets/makula_app_bar_gray.dart';
   static const String widgetsMakulaButton = 'lib/views/widgets/makula_button.dart';
   static const String widgetsMakulaCustomAppBar = 'lib/views/widgets/makula_custom_app_bar.dart';

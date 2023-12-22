@@ -3,7 +3,7 @@ description: A new Flutter project.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 
-version: 1.2.1+56
+version: 1.2.3+59
 
 environment:
   sdk: '>=3.0.3 <4.0.0'
@@ -24,7 +24,7 @@ dependencies:
   emoji_picker_flutter: ^1.6.3
   flutter_chat_bubble: ^2.0.2
   timelines: ^0.1.0
-  image_picker: ^1.0.4
+  image_picker: ^1.0.5
   cached_network_image: ^3.3.0
   file_picker:
   url_launcher:
@@ -33,7 +33,7 @@ dependencies:
   flutter_local_notifications: ^16.2.0
   rxdart: ^0.27.7
   provider: ^6.1.1
-  freezed: ^2.4.5
+  freezed: ^2.4.6
   sealed_unions: ^3.0.3+1
   flutter_downloader: ^1.11.5
   external_path: ^1.0.3
@@ -49,6 +49,8 @@ dependencies:
   connectivity_plus: ^5.0.2
   floor: ^1.4.2
   sqflite: ^2.3.0
+  flutter_html: ^3.0.0-alpha.1
+  signature: ^5.4.1
 #  hive: ^2.2.3
 #  hive_flutter: ^1.1.0
 
