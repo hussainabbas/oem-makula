@@ -9,19 +9,29 @@ import 'package:makula_oem/database/list_open_tickets_dao.dart';
 import 'package:makula_oem/database/list_user_close_tickets_dao.dart';
 import 'package:makula_oem/database/list_user_open_tickets_dao.dart';
 import 'package:makula_oem/database/login_mobile_dao.dart';
+import 'package:makula_oem/database/procedure_template_dao.dart';
 import 'package:makula_oem/database/type_converters/chat_keys_converter.dart';
 import 'package:makula_oem/database/type_converters/current_user_converter.dart';
+import 'package:makula_oem/database/type_converters/dynamic_file_converter.dart';
 import 'package:makula_oem/database/type_converters/facility_converter.dart';
 import 'package:makula_oem/database/type_converters/list_assignee_dao.dart';
+import 'package:makula_oem/database/type_converters/list_attachment_modal_converter.dart';
+import 'package:makula_oem/database/type_converters/list_children_modal_converter.dart';
+import 'package:makula_oem/database/type_converters/list_columns_modal_converter.dart';
+import 'package:makula_oem/database/type_converters/list_options_modal_converter.dart';
 import 'package:makula_oem/database/type_converters/list_own_oem_open_tickets_model_converter.dart';
 import 'package:makula_oem/database/type_converters/list_own_oem_support_accounts_converter.dart';
+import 'package:makula_oem/database/type_converters/list_own_procedure_templates_model_converter.dart';
 import 'package:makula_oem/database/type_converters/list_procedures_converter.dart';
+import 'package:makula_oem/database/type_converters/list_signature_modal_converter.dart';
 import 'package:makula_oem/database/type_converters/list_string_converter.dart';
 import 'package:makula_oem/database/type_converters/machine_information_converter.dart';
 import 'package:makula_oem/database/type_converters/oem_status_model_converter.dart';
 import 'package:makula_oem/database/type_converters/open_ticket_converter.dart';
 import 'package:makula_oem/database/type_converters/procedure_converter.dart';
+import 'package:makula_oem/database/type_converters/procedure_template_converter.dart';
 import 'package:makula_oem/database/type_converters/statuses_model_converter.dart';
+import 'package:makula_oem/database/type_converters/table_option_model_converter.dart';
 import 'package:makula_oem/helper/model/facilities.dart';
 import 'package:makula_oem/helper/model/get_current_user_details_model.dart';
 import 'package:makula_oem/helper/model/get_status_response.dart';
@@ -35,6 +45,9 @@ import 'package:makula_oem/helper/model/machine_information.dart';
 import 'package:sqflite/sqflite.dart' as sqflite;
 
 import '../helper/model/get_own_oem_ticket_by_id_response.dart';
+import '../helper/model/get_procedure_by_id_response.dart';
+import '../helper/model/get_procedure_templates_response.dart';
+import 'get_procedure_templates_response_dao.dart';
 
 part 'app_database.g.dart';
 
@@ -56,6 +69,15 @@ part 'app_database.g.dart';
   ListOwnOemSupportAccounts,
   Procedures,
   Procedure,
+  GetProcedureTemplatesResponse,
+  ListOwnOemProcedureTemplates,
+  SignatureModel,
+  ChildrenModel,
+  AttachmentsModel,
+  OptionsModel,
+  TableOptionModel,
+  ColumnsModel,
+  GetProcedureByIdResponse
 ])
 @TypeConverters([
   ChatKeysConverter,
@@ -69,7 +91,15 @@ part 'app_database.g.dart';
   ListStringConverter2,
   ListOwnOemOpenTicketsListModelConverter,
   ListProceduresConverter,
-  ProcedureConverter
+  ProcedureConverter,
+  ListOwnOemProcedureTemplatesModelConverter,
+  ListSignatureModalConverter,
+  ListChildrenModalConverter,
+  ListAttachmentsModelConverter,
+  ListOptionsModelConverter,
+  TableOptionModelConverter,
+  ListColumnsModelConverter,
+  ProcedureTemplatesConverter,
 ])
 abstract class AppDatabase extends FloorDatabase {
   LoginMobileDao get loginMobileDao;
@@ -89,4 +119,8 @@ abstract class AppDatabase extends FloorDatabase {
   GetTicketDetailResponseDao get getTicketDetailResponseDao;
 
   ListAssigneeDao get getListAssignee;
+
+  ProcedureTemplatesDao get procedureTemplates;
+
+  ListOwnOemProcedureTemplatesDao get getProcedureByIdResponseDao;
 }

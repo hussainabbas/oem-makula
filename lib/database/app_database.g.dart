@@ -79,6 +79,10 @@ class _$AppDatabase extends AppDatabase {
 
   ListAssigneeDao? _getListAssigneeInstance;
 
+  ProcedureTemplatesDao? _procedureTemplatesInstance;
+
+  ListOwnOemProcedureTemplatesDao? _getProcedureByIdResponseDaoInstance;
+
   Future<sqflite.Database> open(
     String path,
     List<Migration> migrations, [
@@ -132,6 +136,20 @@ class _$AppDatabase extends AppDatabase {
             'CREATE TABLE IF NOT EXISTS `Procedures` (`id` INTEGER, `procedure` TEXT, PRIMARY KEY (`id`))');
         await database.execute(
             'CREATE TABLE IF NOT EXISTS `Procedure` (`sId` TEXT, `name` TEXT, `description` TEXT, `state` TEXT, `createdAt` TEXT, `updatedAt` TEXT, `pdfUrl` TEXT, PRIMARY KEY (`sId`))');
+        await database.execute(
+            'CREATE TABLE IF NOT EXISTS `GetProcedureTemplatesResponse` (`id` INTEGER, `listOwnOemProcedureTemplates` TEXT, PRIMARY KEY (`id`))');
+        await database.execute(
+            'CREATE TABLE IF NOT EXISTS `ListOwnOemProcedureTemplates` (`sId` TEXT, `name` TEXT, `state` TEXT, `pdfUrl` TEXT, `description` TEXT, `createdAt` TEXT, `updatedAt` TEXT, `signatures` TEXT, `children` TEXT, `pageHeader` TEXT, `value` TEXT NOT NULL, PRIMARY KEY (`sId`))');
+        await database.execute(
+            'CREATE TABLE IF NOT EXISTS `SignatureModel` (`sId` TEXT, `signatoryTitle` TEXT, `name` TEXT, `date` TEXT, `signatureUrl` TEXT, PRIMARY KEY (`sId`))');
+        await database.execute(
+            'CREATE TABLE IF NOT EXISTS `ChildrenModel` (`sId` TEXT, `type` TEXT, `name` TEXT, `description` TEXT, `value` TEXT NOT NULL, `isRequired` INTEGER, `options` TEXT, `tableOption` TEXT, `attachments` TEXT, `children` TEXT, PRIMARY KEY (`sId`))');
+        await database.execute(
+            'CREATE TABLE IF NOT EXISTS `AttachmentsModel` (`sId` TEXT, `name` TEXT, `type` TEXT, `url` TEXT, `size` TEXT, PRIMARY KEY (`sId`))');
+        await database.execute(
+            'CREATE TABLE IF NOT EXISTS `OptionsModel` (`sId` TEXT, `name` TEXT, PRIMARY KEY (`sId`))');
+        await database.execute(
+            'CREATE TABLE IF NOT EXISTS `ColumnsModel` (`sId` TEXT, `heading` TEXT, `width` INTEGER, `value` TEXT NOT NULL, PRIMARY KEY (`sId`))');
 
         await callback?.onCreate?.call(database, version);
       },
@@ -190,6 +208,18 @@ class _$AppDatabase extends AppDatabase {
   ListAssigneeDao get getListAssignee {
     return _getListAssigneeInstance ??=
         _$ListAssigneeDao(database, changeListener);
+  }
+
+  @override
+  ProcedureTemplatesDao get procedureTemplates {
+    return _procedureTemplatesInstance ??=
+        _$ProcedureTemplatesDao(database, changeListener);
+  }
+
+  @override
+  ListOwnOemProcedureTemplatesDao get getProcedureByIdResponseDao {
+    return _getProcedureByIdResponseDaoInstance ??=
+        _$ListOwnOemProcedureTemplatesDao(database, changeListener);
   }
 }
 
@@ -706,6 +736,8 @@ class _$GetTicketDetailResponseDao extends GetTicketDetailResponseDao {
             createdAt: row['createdAt'] as String?,
             machine:
                 _machineInformationConverter.decode(row['machine'] as String?),
+            procedures:
+                _listProceduresConverter.decode(row['procedures'] as String?),
             ticketChatChannels: _listStringConverter2
                 .decode(row['ticketChatChannels'] as String?)),
         arguments: [id]);
@@ -757,6 +789,119 @@ class _$ListAssigneeDao extends ListAssigneeDao {
   }
 }
 
+class _$ProcedureTemplatesDao extends ProcedureTemplatesDao {
+  _$ProcedureTemplatesDao(
+    this.database,
+    this.changeListener,
+  )   : _queryAdapter = QueryAdapter(database),
+        _getProcedureTemplatesResponseInsertionAdapter = InsertionAdapter(
+            database,
+            'GetProcedureTemplatesResponse',
+            (GetProcedureTemplatesResponse item) => <String, Object?>{
+                  'id': item.id,
+                  'listOwnOemProcedureTemplates':
+                      _listOwnOemProcedureTemplatesModelConverter
+                          .encode(item.listOwnOemProcedureTemplates)
+                });
+
+  final sqflite.DatabaseExecutor database;
+
+  final StreamController<String> changeListener;
+
+  final QueryAdapter _queryAdapter;
+
+  final InsertionAdapter<GetProcedureTemplatesResponse>
+      _getProcedureTemplatesResponseInsertionAdapter;
+
+  @override
+  Future<List<GetProcedureTemplatesResponse>> getAllProcedureTemplates() async {
+    return _queryAdapter.queryList(
+        'SELECT * FROM GetProcedureTemplatesResponse',
+        mapper: (Map<String, Object?> row) => GetProcedureTemplatesResponse(
+            listOwnOemProcedureTemplates:
+                _listOwnOemProcedureTemplatesModelConverter
+                    .decode(row['listOwnOemProcedureTemplates'] as String?)));
+  }
+
+  @override
+  Future<GetProcedureTemplatesResponse?> getProcedureTemplates() async {
+    return _queryAdapter.query(
+        'SELECT * FROM GetProcedureTemplatesResponse LIMIT 1',
+        mapper: (Map<String, Object?> row) => GetProcedureTemplatesResponse(
+            listOwnOemProcedureTemplates:
+                _listOwnOemProcedureTemplatesModelConverter
+                    .decode(row['listOwnOemProcedureTemplates'] as String?)));
+  }
+
+  @override
+  Future<void> insertOrUpdate(GetProcedureTemplatesResponse response) async {
+    await _getProcedureTemplatesResponseInsertionAdapter.insert(
+        response, OnConflictStrategy.abort);
+  }
+}
+
+class _$ListOwnOemProcedureTemplatesDao
+    extends ListOwnOemProcedureTemplatesDao {
+  _$ListOwnOemProcedureTemplatesDao(
+    this.database,
+    this.changeListener,
+  )   : _queryAdapter = QueryAdapter(database),
+        _listOwnOemProcedureTemplatesInsertionAdapter = InsertionAdapter(
+            database,
+            'ListOwnOemProcedureTemplates',
+            (ListOwnOemProcedureTemplates item) => <String, Object?>{
+                  'sId': item.sId,
+                  'name': item.name,
+                  'state': item.state,
+                  'pdfUrl': item.pdfUrl,
+                  'description': item.description,
+                  'createdAt': item.createdAt,
+                  'updatedAt': item.updatedAt,
+                  'signatures':
+                      _listSignatureModalConverter.encode(item.signatures),
+                  'children': _listChildrenModalConverter.encode(item.children),
+                  'pageHeader': item.pageHeader,
+                  'value': _dynamicValueConverter.encode(item.value)
+                });
+
+  final sqflite.DatabaseExecutor database;
+
+  final StreamController<String> changeListener;
+
+  final QueryAdapter _queryAdapter;
+
+  final InsertionAdapter<ListOwnOemProcedureTemplates>
+      _listOwnOemProcedureTemplatesInsertionAdapter;
+
+  @override
+  Future<ListOwnOemProcedureTemplates?> getProcedureById(String id) async {
+    return _queryAdapter.query(
+        'SELECT * FROM ListOwnOemProcedureTemplates WHERE sId = ?1',
+        mapper: (Map<String, Object?> row) => ListOwnOemProcedureTemplates(
+            sId: row['sId'] as String?,
+            name: row['name'] as String?,
+            description: row['description'] as String?,
+            createdAt: row['createdAt'] as String?,
+            updatedAt: row['updatedAt'] as String?,
+            signatures: _listSignatureModalConverter
+                .decode(row['signatures'] as String?),
+            children:
+                _listChildrenModalConverter.decode(row['children'] as String?),
+            state: row['state'] as String?,
+            pdfUrl: row['pdfUrl'] as String?,
+            value: _dynamicValueConverter.decode(row['value'] as String?),
+            pageHeader: row['pageHeader'] as String?),
+        arguments: [id]);
+  }
+
+  @override
+  Future<void> insertListOwnOemProcedureTemplatesById(
+      ListOwnOemProcedureTemplates template) async {
+    await _listOwnOemProcedureTemplatesInsertionAdapter.insert(
+        template, OnConflictStrategy.replace);
+  }
+}
+
 // ignore_for_file: unused_element
 final _chatKeysConverter = ChatKeysConverter();
 final _listOwnOemOpenTicketsListModelConverter =
@@ -770,6 +915,16 @@ final _listStringConverter = ListStringConverter();
 final _listStringConverter2 = ListStringConverter2();
 final _listProceduresConverter = ListProceduresConverter();
 final _procedureConverter = ProcedureConverter();
+final _listOwnOemProcedureTemplatesModelConverter =
+    ListOwnOemProcedureTemplatesModelConverter();
+final _listSignatureModalConverter = ListSignatureModalConverter();
+final _listChildrenModalConverter = ListChildrenModalConverter();
+final _listAttachmentsModelConverter = ListAttachmentsModelConverter();
+final _listOptionsModelConverter = ListOptionsModelConverter();
+final _tableOptionModelConverter = TableOptionModelConverter();
+final _listColumnsModelConverter = ListColumnsModelConverter();
+final _procedureTemplatesConverter = ProcedureTemplatesConverter();
 final _listOpenTicketConverter = ListOpenTicketConverter();
 final _listOwnOemSupportAccountsConverter =
     ListOwnOemSupportAccountsConverter();
+final _dynamicValueConverter = DynamicValueConverter();

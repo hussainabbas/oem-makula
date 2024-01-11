@@ -19,6 +19,7 @@ import 'package:makula_oem/helper/utils/extension_functions.dart';
 import 'package:makula_oem/helper/utils/hive_resources.dart';
 import 'package:makula_oem/helper/utils/offline_resources.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
+import 'package:makula_oem/main.dart';
 import 'package:makula_oem/pubnub/message_provider.dart';
 import 'package:makula_oem/pubnub/pubnub_instance.dart';
 import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/details/image_full_screen.dart';
@@ -55,6 +56,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final ImagePicker _picker = ImagePicker();
 
   _getValueFromSP() async {
+    userValue = (await appDatabase?.userDao.getCurrentUserDetailsFromDb())!;
     // userValue = HiveResources.currentUserBox!.get(OfflineResources.CURRENT_USER_RESPONSE)!;
     // userValue =
     //     CurrentUser.fromJson(await appPreferences.getData(AppPreferences.USER));

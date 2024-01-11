@@ -13,3 +13,19 @@ class AttachProcedureToWorkOrderResponse {
     return data;
   }
 }
+
+class FinalizeOemProcedureResponse {
+  String? finalizeOwnOemProcedure;
+
+  FinalizeOemProcedureResponse({this.finalizeOwnOemProcedure});
+
+  FinalizeOemProcedureResponse.fromJson(Map<String, dynamic> json) {
+    finalizeOwnOemProcedure = json['finalizeOwnOemProcedure'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['finalizeOwnOemProcedure'] = finalizeOwnOemProcedure;
+    return data;
+  }
+}

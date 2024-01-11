@@ -20,11 +20,11 @@ import 'package:makula_oem/views/widgets/makula_text_view.dart';
 import 'package:provider/provider.dart';
 
 final TextEditingController _emailController =
-    TextEditingController(text: "azfar.rashid@mmmtechltd.com");
-    //TextEditingController();
+    // TextEditingController(text: "azfar.rashid@mmmtechltd.com");
+    TextEditingController();
 final TextEditingController _passwordController =
-    TextEditingController(text: "RyCJxRdy0u");
-    //TextEditingController();
+    // TextEditingController(text: "RyCJxRdy0u");
+    TextEditingController();
 final FocusNode _emailFieldFocus = FocusNode();
 final FocusNode _passwordFieldFocus = FocusNode();
 late BuildContext _context;

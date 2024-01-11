@@ -38,10 +38,8 @@ class GetOwnOemTicketById {
   String? chat;
   String? status;
   String? createdAt;
-
   @TypeConverters([ListStringConverter2])
   List<String>? ticketChatChannels;
-
   @TypeConverters([ListProceduresConverter])
   List<Procedures>? procedures;
 
@@ -59,6 +57,7 @@ class GetOwnOemTicketById {
       this.status,
       this.createdAt,
       this.machine,
+        this.procedures,
       this.ticketChatChannels});
 
   GetOwnOemTicketById.fromJson(Map<String, dynamic> json) {

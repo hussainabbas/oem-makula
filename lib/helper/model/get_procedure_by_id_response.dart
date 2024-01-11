@@ -1,4 +1,4 @@
-import 'package:makula_oem/helper/model/get_procedure_templates_response.dart';
+import 'get_procedure_templates_response.dart';
 
 class GetProcedureByIdResponse {
   ListOwnOemProcedureTemplates? getOwnOemProcedureById;

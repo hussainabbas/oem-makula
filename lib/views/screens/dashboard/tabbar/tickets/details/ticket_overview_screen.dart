@@ -76,6 +76,9 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
     _getValuesFromSP();
     _getOEMStatuesValueFromSP();
 
+
+    console("_ticket => ${widget._ticket.sId}");
+
     //_addTextListeners();
     super.initState();
   }
@@ -133,8 +136,8 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
 
       await getListOwnOemSupportAccounts();
     } else {
-      _ticketDetailData = (await appDatabase?.getTicketDetailResponseDao
-          .getTicketDetailResponseById(widget._ticket.sId ?? ""))!;
+      _ticketDetailData = (await appDatabase?.getTicketDetailResponseDao.getTicketDetailResponseById(widget._ticket.sId ?? ""))!;
+      console("_ticketDetailData procedures => ${_ticketDetailData.procedures?.length}");
       responseAssignee = (await appDatabase?.getListAssignee.findAssignee())!;
       _getStatusFromDb();
       // responseAssignee = HiveResources.listAssigneeBox!.get(OfflineResources.LIST_ASSIGNEE_RESPONSE)!;
@@ -198,49 +201,53 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                 console("loading => "),
               });
     } else {
-      //responseAssignee = (await appDatabase?.getListAssignee.findAssignee())!;
+      _getProcedureTemplatesResponse = (await appDatabase?.procedureTemplates.getProcedureTemplates())!;
+      console("_getProcedureTemplatesResponse => ${_getProcedureTemplatesResponse?.listOwnOemProcedureTemplates?.length}");
     }
   }
 
   _observerGetProcedureTemplatesResponse(
-      GetProcedureTemplatesResponse response) {
+      GetProcedureTemplatesResponse response) async {
     _getProcedureTemplatesResponse = response;
+
+    await appDatabase?.procedureTemplates.insertOrUpdate(response);
   }
 
 
-  _getProcedureById(String procedureId) async {
-    var isConnected = await isConnectedToNetwork();
-    if (context.mounted) context.showCustomDialog();
-    if (isConnected) {
-      var result = await ProcedureViewModel().getProcedureById(procedureId);
-      if (context.mounted) Navigator.pop(context);
-      result.join(
-              (failed) => {console("failed => ${failed.exception}")},
-              (loaded) => {
-               console("_getProcedureById -> Response => ${loaded.data}"), _observerGetProcedureByIdResponse(loaded.data),
-          },
-              (loading) => {
-            console("loading => "),
-          });
-    }
-  }
-
-  _observerGetProcedureByIdResponse(GetProcedureByIdResponse response) {
-    ListOwnOemProcedureTemplates? templates = response.getOwnOemProcedureById;
-    console("_observerGetProcedureByIdResponse => ${response.getOwnOemProcedureById?.state}");
-    console("_observerGetProcedureByIdResponse => ${response.getOwnOemProcedureById?.pdfUrl}");
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-          builder: (context) =>
-              ProcedureScreen(
-                templates: templates,
-                state: response.getOwnOemProcedureById?.state,
-                pdfUrl: response.getOwnOemProcedureById?.pdfUrl,
-              )),
-
-    );
-  }
+  // _getProcedureById(String procedureId) async {
+  //   var isConnected = await isConnectedToNetwork();
+  //   if (context.mounted) context.showCustomDialog();
+  //   if (isConnected) {
+  //     var result = await ProcedureViewModel().getProcedureById(procedureId);
+  //     if (context.mounted) Navigator.pop(context);
+  //     result.join(
+  //             (failed) => {console("failed => ${failed.exception}")},
+  //             (loaded) => {
+  //              console("_getProcedureById -> Response => ${loaded.data}"), _observerGetProcedureByIdResponse(loaded.data),
+  //         },
+  //             (loading) => {
+  //           console("loading => "),
+  //         });
+  //   }
+  // }
+  //
+  // _observerGetProcedureByIdResponse(GetProcedureByIdResponse response) {
+  //   ListOwnOemProcedureTemplates? templates = response.getOwnOemProcedureById;
+  //   console("_observerGetProcedureByIdResponse => ${response.getOwnOemProcedureById?.state}");
+  //   console("_observerGetProcedureByIdResponse => ${response.getOwnOemProcedureById?.pdfUrl}");
+  //
+  //   // Navigator.of(context).push(
+  //   //   MaterialPageRoute(
+  //   //       builder: (context) =>
+  //   //           ProcedureScreen(
+  //   //             templates: templates,
+  //   //             state: response.getOwnOemProcedureById?.state,
+  //   //             pdfUrl: response.getOwnOemProcedureById?.pdfUrl,
+  //   //             workOrderId: _ticketDetailData.sId,
+  //   //           )),
+  //   //
+  //   // );
+  // }
 
   Widget _ticketOverviewContent() {
     return Column(
@@ -342,7 +349,16 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                                 return ListTile(
                                   onTap: () {
                                     Provider.of<ProcedureProvider>(context, listen: false).clearFieldValues();
-                                    _getProcedureById(item?.procedure?.sId ?? "");
+                                    //_getProcedureById(item?.procedure?.sId ?? "");
+
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                          builder: (context) =>
+                                              ProcedureScreen(
+                                                templatesId: item?.procedure?.sId ?? "",
+                                              )),
+
+                                    );
                                   },
                                   title: Row(
                                     mainAxisAlignment:
@@ -355,8 +371,8 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                                           fontSize: 12),
                                       Container(
                                           decoration: BoxDecoration(
-                                              color: item?.procedure?.state ==
-                                                      "NOT_STARTED"
+                                              color: item?.procedure?.state !=
+                                                      "FINALIZED"
                                                   ? lightGray
                                                   : closedContainerColor,
                                               borderRadius:
@@ -370,8 +386,8 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                                                       ?.replaceAll("_", " ") ??
                                                   "",
                                               textColor:
-                                                  item?.procedure?.state ==
-                                                          "NOT_STARTED"
+                                                  item?.procedure?.state !=
+                                                          "FINALIZED"
                                                       ? textColorLight
                                                       : closedStatusColor,
                                               textFontWeight: FontWeight.normal,

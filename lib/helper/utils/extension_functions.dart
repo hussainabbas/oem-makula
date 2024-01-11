@@ -78,4 +78,12 @@ extension ConvertStringToDateTime on String {
     console(date);
     return date;
   }
+
+  String convertStringDDMMYYYHHMMSSDateToEMMMDDYYYY() {
+    final inputFormat = DateFormat("yyyy-MM-dd'T'hh:mm:ss");
+    final parsedDate = inputFormat.parse(this);
+    final outputFormat = DateFormat('dd-MM-yyyy', 'en_US');
+    final formattedDate = outputFormat.format(parsedDate);
+    return formattedDate;
+  }
 }

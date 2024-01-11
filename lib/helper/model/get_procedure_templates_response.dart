@@ -1,4 +1,19 @@
+
+import 'package:floor/floor.dart';
+import 'package:makula_oem/database/type_converters/dynamic_file_converter.dart';
+import 'package:makula_oem/database/type_converters/list_attachment_modal_converter.dart';
+import 'package:makula_oem/database/type_converters/list_children_modal_converter.dart';
+import 'package:makula_oem/database/type_converters/list_options_modal_converter.dart';
+import 'package:makula_oem/database/type_converters/list_own_procedure_templates_model_converter.dart';
+import 'package:makula_oem/database/type_converters/list_signature_modal_converter.dart';
+import 'package:makula_oem/database/type_converters/table_option_model_converter.dart';
+
+@entity
 class GetProcedureTemplatesResponse {
+  @primaryKey
+  int? id;
+
+  @TypeConverters([ListOwnOemProcedureTemplatesModelConverter])
   List<ListOwnOemProcedureTemplates>? listOwnOemProcedureTemplates;
 
   GetProcedureTemplatesResponse({this.listOwnOemProcedureTemplates});
@@ -23,17 +38,25 @@ class GetProcedureTemplatesResponse {
   }
 }
 
+@entity
 class ListOwnOemProcedureTemplates {
+  @primaryKey
   String? sId;
+
   String? name;
   String? state;
   String? pdfUrl;
   String? description;
   String? createdAt;
   String? updatedAt;
+  @TypeConverters([ListSignatureModalConverter])
   List<SignatureModel>? signatures;
+  @TypeConverters([ListChildrenModalConverter])
   List<ChildrenModel>? children;
-  Null? pageHeader;
+  String? pageHeader;
+
+  @TypeConverters([DynamicValueConverter])
+  dynamic? value;
 
   ListOwnOemProcedureTemplates(
       {this.sId,
@@ -45,6 +68,7 @@ class ListOwnOemProcedureTemplates {
       this.children,
       this.state,
       this.pdfUrl,
+      this.value,
       this.pageHeader});
 
   ListOwnOemProcedureTemplates.fromJson(Map<String, dynamic> json) {
@@ -68,6 +92,7 @@ class ListOwnOemProcedureTemplates {
     pageHeader = json['pageHeader'];
     state = json['state'];
     pdfUrl = json['pdfUrl'];
+    value = json['value'];
   }
 
   Map<String, dynamic> toJson() {
@@ -77,6 +102,7 @@ class ListOwnOemProcedureTemplates {
     data['description'] = description;
     data['createdAt'] = createdAt;
     data['updatedAt'] = updatedAt;
+    data['value'] = value;
     if (signatures != null) {
       data['signatures'] = signatures!.map((v) => v.toJson()).toList();
     }
@@ -90,15 +116,27 @@ class ListOwnOemProcedureTemplates {
   }
 }
 
+@entity
 class ChildrenModel {
+  @primaryKey
   String? sId;
   String? type;
   String? name;
   String? description;
+
+  @TypeConverters([DynamicValueConverter])
+  dynamic? value;
   bool? isRequired;
+
+  @TypeConverters([ListOptionsModelConverter])
   List<OptionsModel>? options;
+
+  @TypeConverters([TableOptionModelConverter])
   TableOptionModel? tableOption;
+
+  @TypeConverters([ListAttachmentsModelConverter])
   List<AttachmentsModel>? attachments;
+  @TypeConverters([ListChildrenModalConverter])
   List<ChildrenModel>? children;
 
   ChildrenModel(
@@ -106,6 +144,7 @@ class ChildrenModel {
       this.type,
       this.name,
       this.description,
+      this.value,
       this.isRequired,
       this.options,
       this.tableOption,
@@ -117,6 +156,7 @@ class ChildrenModel {
     type = json['type'];
     name = json['name'];
     description = json['description'];
+    value = json['value'];
     isRequired = json['isRequired'];
     if (json['options'] != null) {
       options = <OptionsModel>[];
@@ -144,8 +184,32 @@ class ChildrenModel {
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['_id'] = sId;
+    // data['type'] = type;
+    // data['name'] = name;
+    data['value'] = value;
+    // data['description'] = description;
+    // data['isRequired'] = isRequired;
+    // if (options != null) {
+    //   data['options'] = options!.map((v) => v.toJson()).toList();
+    // }
+    // if (tableOption != null) {
+    //   data['tableOption'] = tableOption!.toJson();
+    // }
+    // if (attachments != null) {
+    //   data['attachments'] = attachments!.map((v) => v.toJson()).toList();
+    // }
+    if (children != null) {
+      data['children'] = children!.map((v) => v.toJson()).toList();
+    }
+    return data;
+  }
+
+  Map<String, dynamic> toJson2() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['_id'] = sId;
     data['type'] = type;
     data['name'] = name;
+    data['value'] = value;
     data['description'] = description;
     data['isRequired'] = isRequired;
     if (options != null) {
@@ -158,15 +222,16 @@ class ChildrenModel {
       data['attachments'] = attachments!.map((v) => v.toJson()).toList();
     }
     if (children != null) {
-      data['children'] = children!.map((v) => v.toJson()).toList();
+      data['children'] = children!.map((v) => v.toJson2()).toList();
     }
     return data;
   }
 }
 
 class TableOptionModel {
-  Null? nId;
-  Null? rowCount;
+  String? nId;
+  String? rowCount;
+
   List<ColumnsModel>? columns;
 
   TableOptionModel({this.nId, this.rowCount, this.columns});
@@ -193,29 +258,46 @@ class TableOptionModel {
   }
 }
 
+@entity
 class ColumnsModel {
+  @primaryKey
   String? sId;
   String? heading;
   int? width;
+  @TypeConverters([DynamicValueConverter])
+  dynamic? value;
 
-  ColumnsModel({this.sId, this.heading, this.width});
+  ColumnsModel({this.sId, this.heading, this.width, this.value});
 
   ColumnsModel.fromJson(Map<String, dynamic> json) {
     sId = json['_id'];
     heading = json['heading'];
     width = json['width'];
+    value = json['value'];
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['_id'] = sId;
+    // data['heading'] = heading;
+    // data['width'] = width;
+    data['value'] = value;
+    return data;
+  }
+
+  Map<String, dynamic> toJson2() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['_id'] = sId;
     data['heading'] = heading;
     data['width'] = width;
+    data['value'] = value;
     return data;
   }
 }
 
+@entity
 class OptionsModel {
+  @primaryKey
   String? sId;
   String? name;
 
@@ -234,7 +316,9 @@ class OptionsModel {
   }
 }
 
+@entity
 class AttachmentsModel {
+  @primaryKey
   String? sId;
   String? name;
   String? type;
@@ -262,21 +346,33 @@ class AttachmentsModel {
   }
 }
 
+@entity
 class SignatureModel {
+  @primaryKey
   String? sId;
   String? signatoryTitle;
+
+  String? name;
+  String? date;
+  String? signatureUrl;
 
   SignatureModel({this.sId, this.signatoryTitle});
 
   SignatureModel.fromJson(Map<String, dynamic> json) {
     sId = json['_id'];
     signatoryTitle = json['signatoryTitle'];
+    name = json['name'];
+    date = json['date'];
+    signatureUrl = json['signatureUrl'];
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['_id'] = sId;
     data['signatoryTitle'] = signatoryTitle;
+    data['name'] = name;
+    data['date'] = date;
+    data['signatureUrl'] = signatureUrl;
     return data;
   }
 }

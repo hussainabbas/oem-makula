@@ -651,8 +651,6 @@ String listOwnOemProcedureTemplates = '''
 }
           ''';
 
-
-
 String getOwnOemProcedureById = ''' 
               query GetOwnOemProcedureById(\$id: ID!) {
                 getOwnOemProcedureById(id: \$id) {
@@ -743,4 +741,58 @@ String ATTACH_PROCEDURE_TO_WORK_ORDER = '''
     attachOwnOemProcedureToWorkOrder(input: \$input)
 }
  
+          ''';
+
+String LIST_OWN_OEM_INVENTORY_PART = r"""
+          query ListOwnOemInventoryPart {
+              listOwnOemInventoryPart(params: { limit: 100 }) {
+                  parts {
+                      _id
+                      name
+                      articleNumber
+                      description
+                      image
+                      thumbnail
+                  }
+              }
+          }
+   """;
+
+String SAFE_SIGN_S3 = ''' 
+            mutation _safeSignS3(\$filename: String!, \$filetype: String!, \$forceCustomPath: Boolean!, \$type: String!) { 
+              _safeSignS3(filename: \$filename, filetype: \$filetype, forceCustomPath: \$forceCustomPath, type: \$type) {
+                id 
+                signedRequest
+                url 
+              }
+            }
+          ''';
+
+String FINALIZE_OEM_PROCEDURE = '''  
+              mutation FinalizeOwnOemProcedure(\$input: InputFinalizeProcedure!) {
+                finalizeOwnOemProcedure(input: \$input)
+              }
+          ''';
+
+String LIST_SUPPORT_ACCOUNTS = '''  
+              query ListOwnOemSupportAccounts {
+                  listOwnOemSupportAccounts {
+                      _id
+                      name
+                      username
+                       
+                  }
+              }
+          ''';
+
+String SAVE_AS_DRAFT_OEM_PROCEDURE = '''  
+              mutation SaveOwnOemProcedure(\$input: InputSaveProcedure!) {
+                saveOwnOemProcedure(input: \$input){
+                    _id
+                    name
+                    description
+                    createdAt
+                    updatedAt
+                }
+              }
           ''';

@@ -1,159 +1,367 @@
+import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'package:makula_oem/helper/model/get_inventory_part_list_response.dart';
+import 'package:makula_oem/helper/model/get_list_support_accounts_response.dart';
 import 'package:makula_oem/helper/model/get_procedure_templates_response.dart';
+import 'package:makula_oem/helper/model/signature_model.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
+import 'package:makula_oem/helper/utils/constants.dart';
 import 'package:makula_oem/helper/utils/context_function.dart';
+import 'package:makula_oem/helper/utils/extension_functions.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
+import 'package:makula_oem/main.dart';
+import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/details/bottom_sheet_image_chooser_dialog.dart';
 import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/details/image_full_screen.dart';
+import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/details/procedure_viewmodel.dart';
 import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/details/signature_procedure_screen.dart';
 import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/provider/procedure_provider.dart';
 import 'package:makula_oem/views/widgets/custom_elevated_button.dart';
 import 'package:makula_oem/views/widgets/dotter_border.dart';
 import 'package:makula_oem/views/widgets/makula_text_view.dart';
+import 'package:path/path.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+import '../../../../../../helper/model/get_current_user_details_model.dart';
+import '../../../../../../helper/model/get_procedure_by_id_response.dart';
+import '../../../../../../helper/model/safe_sign_s3_response.dart';
 
 class ProcedureScreen extends StatefulWidget {
-  final ListOwnOemProcedureTemplates? templates;
-  final String? state;
-  final String? pdfUrl;
+  final String? templatesId;
 
-  const ProcedureScreen({super.key, required this.templates, required this.state, required this.pdfUrl});
+  const ProcedureScreen({super.key, required this.templatesId, l});
 
   @override
   State<ProcedureScreen> createState() => _ProcedureScreenState();
 }
 
 class _ProcedureScreenState extends State<ProcedureScreen> {
+  GetInventoryPartListResponse? inventoryPartListResponse;
+  GetListSupportAccountsResponse? listSupportAccountsResponse;
+  CurrentUser? userValue;
+
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarIconBrightness: Brightness.dark,
     ));
 
+    getValueFromSP() async {
+      userValue = (await appDatabase?.userDao.getCurrentUserDetailsFromDb())!;
+    }
+
     // Extract the procedure from the templates
-    final ListOwnOemProcedureTemplates? templates = widget.templates;
-    final procedures = templates?.children ?? [];
+    // final ListOwnOemProcedureTemplates? templates = widget.templates;
+    // final procedures = templates?.children ?? [];
+    ListOwnOemProcedureTemplates? templates;
+    List<ChildrenModel> procedures = [];
+
+    observerGetProcedureByIdResponse(GetProcedureByIdResponse response) async {
+      templates = response.getOwnOemProcedureById;
+      console(
+          "_observerGetProcedureByIdResponse => ${response.getOwnOemProcedureById?.state}");
+      console(
+          "_observerGetProcedureByIdResponse => ${response.getOwnOemProcedureById?.pdfUrl}");
+      Provider.of<ProcedureProvider>(context, listen: false)
+          .setMyProcedureRequest(templates);
+      //templates = response.getOwnOemProcedureById;
+      procedures = templates?.children ?? [];
+
+      await appDatabase?.getProcedureByIdResponseDao
+          .insertListOwnOemProcedureTemplatesById(
+              response.getOwnOemProcedureById!);
+    }
+
+    getProcedureById(String procedureId) async {
+      await getValueFromSP();
+      await _getInventoryParts();
+      var isConnected = await isConnectedToNetwork();
+
+      if (isConnected) {
+        if (context.mounted) context.showCustomDialog();
+        var result = await ProcedureViewModel().getProcedureById(procedureId);
+        if (context.mounted) Navigator.pop(context);
+        result.join(
+            (failed) => {console("failed => ${failed.exception}")},
+            (loaded) => {
+                  console("_getProcedureById -> Response => ${loaded.data}"),
+                  observerGetProcedureByIdResponse(loaded.data),
+                },
+            (loading) => {
+                  console("loading => "),
+                });
+      } else {
+        templates = await appDatabase?.getProcedureByIdResponseDao
+            .getProcedureById(procedureId);
+        procedures = templates?.children ?? [];
+      }
+    }
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        centerTitle: true,
-        leading: GestureDetector(
-            onTap: () {
-              Navigator.pop(context);
-            },
-            child: const Icon(Icons.arrow_back_ios)),
-        backgroundColor: Colors.grey.shade200,
-        actions: [
-          SvgPicture.asset("assets/images/notification.svg"),
-          const SizedBox(
-            width: 16,
-          )
-        ],
-        title: TextView(
-            text: "Packaging machine / ${templates?.name}",
-            textColor: textColorDark,
-            textFontWeight: FontWeight.bold,
-            fontSize: 14),
-      ),
-      body: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          GestureDetector(
+      body: FutureBuilder(
+          future: getProcedureById(widget.templatesId ?? ""),
+          builder: (context, projectSnap) {
+            if (projectSnap.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator.adaptive(),
+              );
+            }
+            if (projectSnap.hasError) {
+              return const Center(child: Text(unexpectedError));
+            } else {
+              return Scaffold(
+                backgroundColor: Colors.white,
+                appBar: AppBar(
+                  centerTitle: true,
+                  leading: GestureDetector(
+                      onTap: () {
+                        Provider.of<ProcedureProvider>(context, listen: false)
+                            .clearFieldValues();
+                        Provider.of<ProcedureProvider>(context, listen: false)
+                            .removeAllPartModels();
+                        Provider.of<ProcedureProvider>(context, listen: false)
+                            .clearImageFieldValue();
+                        Provider.of<ProcedureProvider>(context, listen: false)
+                            .clearTableDataRequestModel();
+                        Provider.of<ProcedureProvider>(context, listen: false)
+                            .clearSignature();
 
-                              onTap: () {
-                                launchURL(widget.pdfUrl ?? "");
+                        Provider.of<ProcedureProvider>(context, listen: false)
+                            .clearSupportAccount();
+                        Provider.of<ProcedureProvider>(context, listen: false)
+                            .clearSupportAccountSid();
+                        Navigator.pop(context);
+                      },
+                      child: const Icon(Icons.arrow_back_ios)),
+                  backgroundColor: Colors.grey.shade200,
+                  actions: [
+                    SvgPicture.asset("assets/images/notification.svg"),
+                    const SizedBox(
+                      width: 16,
+                    )
+                  ],
+                  title: TextView(
+                      text: "Packaging machine / ${templates?.name}",
+                      textColor: textColorDark,
+                      textFontWeight: FontWeight.bold,
+                      fontSize: 14),
+                ),
+                body: SafeArea(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    GestureDetector(
+                                        onTap: () {
+                                          launchURL(templates?.pdfUrl ?? "");
+                                        },
+                                        child: SvgPicture.asset(
+                                            "assets/images/ghost_button.svg")),
+                                    Container(
+                                        decoration: BoxDecoration(
+                                            color:
+                                                templates?.state != "FINALIZED"
+                                                    ? lightGray
+                                                    : closedContainerColor,
+                                            borderRadius:
+                                                BorderRadius.circular(8)),
+                                        alignment: Alignment.center,
+                                        padding: const EdgeInsets.fromLTRB(
+                                            8, 4, 4, 5),
+                                        child: TextView(
+                                            align: TextAlign.center,
+                                            text: templates?.state
+                                                    ?.replaceAll("_", " ") ??
+                                                "",
+                                            textColor:
+                                                templates?.state != "FINALIZED"
+                                                    ? textColorLight
+                                                    : closedStatusColor,
+                                            textFontWeight: FontWeight.normal,
+                                            fontSize: 12)),
+                                  ],
+                                ),
+                                const SizedBox(
+                                  height: 16,
+                                ),
+                                TextView(
+                                    text: templates?.name ?? "",
+                                    textColor: textColorDark,
+                                    textFontWeight: FontWeight.bold,
+                                    fontSize: 18),
+                                const SizedBox(
+                                  height: 16,
+                                ),
+                                TextView(
+                                    text: templates?.description ?? "",
+                                    textColor: textColorDark,
+                                    textFontWeight: FontWeight.normal,
+                                    fontSize: 12),
+                                for (var entry in procedures.asMap().entries)
+                                  //for (var procedure in procedures)
+                                  FieldWidget(
+                                    fieldData: entry.value,
+                                    isBorderShowing: true,
+                                    index: entry.key,
+                                    parentIndex: -1,
+                                    isAChildren: false,
+                                    userValue: userValue,
+                                    procedureId: widget.templatesId ?? "",
+                                    listSupportAccountsResponse:
+                                        listSupportAccountsResponse,
+                                    isEditable: templates?.state != "FINALIZED",
+                                    //&& (Provider.of<ProcedureProvider>(context, listen: false).signatureModel?.isNotEmpty ?? false) && (Provider.of<ProcedureProvider>(context, listen: false).signatureModel![0].signature == null),
+                                    inventoryPartListResponse:
+                                        inventoryPartListResponse,
+                                  ),
+                                const SizedBox(height: 16),
+                                //SIGNATURE
 
-                              },
-                              child: SvgPicture.asset("assets/images/ghost_button.svg")),
-
-                          Container(
-                              decoration: BoxDecoration(
-                                  color: widget.state == "NOT_STARTED"
-                                      ? lightGray
-                                      : closedContainerColor,
-                                  borderRadius:
-                                  BorderRadius.circular(8)),
-                              alignment: Alignment.center,
-                              padding: const EdgeInsets.fromLTRB(
-                                  8, 4, 4, 5),
-                              child: TextView(
-                                  align: TextAlign.center,
-                                  text: widget.state?.replaceAll("_", " ") ?? "",
-                                  textColor: widget.state == "NOT_STARTED"
-                                      ? textColorLight
-                                      : closedStatusColor,
-                                  textFontWeight: FontWeight.normal,
-                                  fontSize: 12)),
-
-                        ],
-                      ),
-                      const SizedBox(
-                        height: 16,
-                      ),
-                      TextView(
-                          text: templates?.name ?? "",
-                          textColor: textColorDark,
-                          textFontWeight: FontWeight.bold,
-                          fontSize: 18),
-                      const SizedBox(
-                        height: 16,
-                      ),
-                      TextView(
-                          text: templates?.description ?? "",
-                          textColor: textColorDark,
-                          textFontWeight: FontWeight.normal,
-                          fontSize: 12),
-                      for (var procedure in procedures)
-                        FieldWidget(
-                          fieldData: procedure,
-                          isBorderShowing: true,
+                                if (templates?.signatures?.isNotEmpty == true)
+                                  // SignatureWidget(
+                                  //   signatureModel: templates?.signatures,
+                                  //   isEditable: templates?.state != "FINALIZED",
+                                  //   currentUser: userValue,
+                                  //   procedureId: widget.templatesId ?? "",
+                                  // ),
+                                  ChangeNotifierProvider.value(
+                                  value: Provider.of<ProcedureProvider>(
+                                      context,
+                                      listen: true),
+                                  child: SignatureWidget(
+                                    signatureModel: templates?.signatures,
+                                    isEditable:
+                                        templates?.state != "FINALIZED",
+                                        currentUser: userValue,
+                                        procedureId: widget.templatesId ?? "",
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      const SizedBox(height: 16),
-                      //SIGNATURE
-
-                      if (templates?.signatures?.isNotEmpty == true)
-                        SignatureWidget(
-                          signatureModel: templates?.signatures,
-                        ),
-                    ],
+                        if (templates?.state != "FINALIZED")
+                          ActionButtons(
+                            refreshCallback: () {
+                              refreshScreen();
+                            },
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              if (widget.state != "FINALIZED")
-              const ActionButtons(),
-            ],
-          ),
-        ),
-      ),
+              );
+            }
+          }),
     );
+  }
+
+  _getInventoryParts() async {
+    var isConnected = await isConnectedToNetwork();
+    if (isConnected) {
+      var result = await ProcedureViewModel().getInventoryPartList();
+      result.join(
+          (failed) => {console("failed => ${failed.exception}")},
+          (loaded) => {
+                _observerGetInventoryParts(loaded.data),
+              },
+          (loading) => {
+                console("loading => "),
+              });
+    }
+  }
+
+  _observerGetInventoryParts(GetInventoryPartListResponse response) async {
+    console(
+        "_observerGetInventoryParts => ${response.listOwnOemInventoryPart?.parts?.length}");
+    inventoryPartListResponse = response;
+
+    await _getListSupportAccounts();
+  }
+
+  _getListSupportAccounts() async {
+    var isConnected = await isConnectedToNetwork();
+    if (isConnected) {
+      var result = await ProcedureViewModel().getListSupportAccounts();
+      result.join(
+          (failed) => {console("failed => ${failed.exception}")},
+          (loaded) => {
+                _observerGetListSupportAccounts(loaded.data),
+              },
+          (loading) => {
+                console("loading => "),
+              });
+    }
+  }
+
+  _observerGetListSupportAccounts(GetListSupportAccountsResponse response) {
+    console(
+        "_observerGetListSupportAccounts => ${response.listOwnOemSupportAccounts?.length}");
+    listSupportAccountsResponse = response;
+  }
+
+  void refreshScreen() {
+    Future.delayed(const Duration(seconds: 1), () {
+      setState(() {
+        // Your logic for refreshing the screen goes here
+      });
+    });
   }
 }
 
 class SignatureWidget extends StatelessWidget {
   final List<SignatureModel>? signatureModel;
+  final bool isEditable;
+  final CurrentUser? currentUser;
+  final String procedureId;
 
-  const SignatureWidget({super.key, required this.signatureModel});
+  const SignatureWidget(
+      {super.key,
+      required this.signatureModel,
+      required this.isEditable,
+      required this.currentUser,
+      required this.procedureId});
 
   @override
   Widget build(BuildContext context) {
+    final formStateProvider =
+        Provider.of<ProcedureProvider>(context, listen: false);
+
+    DateTime? selectedDate;
+    signatureModel?.forEach((element) {
+      var model = SignatureRequestModel(
+          name: element.name,
+          date: element.date,
+          id: element.sId.toString(),
+          signature: element.signatureUrl);
+
+      if (Provider.of<ProcedureProvider>(context, listen: false)
+              .signatureModel
+              ?.contains(model) ==
+          false) {
+        Provider.of<ProcedureProvider>(context, listen: false)
+            .signatureModel
+            ?.add(model);
+      }
+
+      console(
+          "SignatureWidget => ${Provider.of<ProcedureProvider>(context, listen: false).signatureModel?.length}");
+    });
     return Container(
         width: context.fullWidth(),
         padding: const EdgeInsets.all(16),
@@ -171,21 +379,67 @@ class SignatureWidget extends StatelessWidget {
               height: 16,
             ),
             ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemBuilder: (context, index) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextView(
-                          text: "Date Signed",
-                          textColor: textColorDark,
-                          textFontWeight: FontWeight.normal,
-                          fontSize: 12),
-                      const SizedBox(
-                        height: 8,
-                      ),
-                      Container(
+              shrinkWrap: true,
+              itemCount: signatureModel?.length ?? 0,
+              physics: const NeverScrollableScrollPhysics(),
+              itemBuilder: (context, index) {
+                bool? idExists =
+                    Provider.of<ProcedureProvider>(context, listen: false)
+                        .signatureModel
+                        ?.any((signature) =>
+                            signature.id == signatureModel?[index].sId);
+                if (idExists == false) {
+                  Provider.of<ProcedureProvider>(context, listen: false)
+                      .signatureModel
+                      ?.add(SignatureRequestModel(
+                          id: signatureModel?[index].sId));
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextView(
+                        text: "Date Signed",
+                        textColor: textColorDark,
+                        textFontWeight: FontWeight.normal,
+                        fontSize: 12),
+                    const SizedBox(
+                      height: 8,
+                    ),
+                    GestureDetector(
+                      onTap: () async {
+                        if (formStateProvider.isValid && isEditable) {
+                          DateTime? pickedDate = await showDatePicker(
+                            context: context,
+                            initialDate: selectedDate ?? DateTime.now(),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime.now(),
+                          );
+
+                          if (pickedDate != null &&
+                              pickedDate != selectedDate) {
+                            // setState(() {
+                            //   _selectedDate = pickedDate;
+                            // });
+                            if (context.mounted) {
+                              console(
+                                  "DATE -> ${"${DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSS'Z").format(pickedDate)}Z"}");
+                              Provider.of<ProcedureProvider>(context,
+                                          listen: false)
+                                      .signatureModel?[index]
+                                      .date =
+                                  DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSS'Z")
+                                          .format(pickedDate) +
+                                      "Z";
+                              // Save the value to the state
+                              // final formStateProvider =
+                              // Provider.of<ProcedureProvider>(context, listen: false);
+                              // formStateProvider.setFieldValue(name, DateFormat('dd/MM/yyyy').format(pickedDate));
+                            }
+                          }
+                        }
+                      },
+                      child: Container(
                           padding: const EdgeInsets.all(16),
                           width: context.fullWidth(),
                           decoration: BoxDecoration(
@@ -196,7 +450,12 @@ class SignatureWidget extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               TextView(
-                                  text: "Select Date",
+                                  text: Provider.of<ProcedureProvider>(context,
+                                              listen: false)
+                                          .signatureModel?[index]
+                                          .date
+                                          ?.convertStringDDMMYYYHHMMSSDateToEMMMDDYYYY() ??
+                                      "Select Date",
                                   textColor: textColorLight,
                                   textFontWeight: FontWeight.normal,
                                   fontSize: 12),
@@ -206,84 +465,118 @@ class SignatureWidget extends StatelessWidget {
                               )
                             ],
                           )),
-                      const SizedBox(
-                        height: 16,
+                    ),
+                    const SizedBox(
+                      height: 16,
+                    ),
+                    TextView(
+                        text: "OEM agent name",
+                        textColor: textColorDark,
+                        textFontWeight: FontWeight.normal,
+                        fontSize: 12),
+                    const SizedBox(
+                      height: 8,
+                    ),
+                    Container(
+                      padding: const EdgeInsets.only(left: 16, right: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      TextView(
-                          text: "OEM agent name",
-                          textColor: textColorDark,
-                          textFontWeight: FontWeight.normal,
-                          fontSize: 12),
-                      const SizedBox(
-                        height: 8,
+                      child: TextFormField(
+                        style: TextStyle(color: textColorDark, fontSize: 12),
+                        enabled: formStateProvider.isValid && isEditable,
+                        // Use the field name as the key
+                        initialValue: Provider.of<ProcedureProvider>(context,
+                                listen: false)
+                            .signatureModel?[index]
+                            .name,
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          hintText: "Enter Name",
+                        ),
+                        keyboardType: TextInputType.text,
+                        validator: (value) {
+                          return null;
+                        },
+                        onChanged: (value) {
+                          // final formStateProvider =
+                          //     Provider.of<ProcedureProvider>(context,
+                          //         listen: false);
+                          // formStateProvider.setFieldValue(
+                          //     "Signature", value);
+
+                          Provider.of<ProcedureProvider>(context, listen: false)
+                              .signatureModel?[index]
+                              .name = value;
+                        },
                       ),
-                      Container(
-                        padding: const EdgeInsets.only(left: 16, right: 16),
+                    ),
+                    const SizedBox(
+                      height: 16,
+                    ),
+                    TextView(
+                        text: "Signature",
+                        textColor: textColorDark,
+                        textFontWeight: FontWeight.normal,
+                        fontSize: 12),
+                    const SizedBox(
+                      height: 8,
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        if (formStateProvider.isValid && isEditable) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (context) => SignatureProcedureScreen(
+                                      index: index,
+                                      currentUser: currentUser,
+                                      procedureId: procedureId,
+                                    )),
+                          );
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        height: 200,
+                        width: context.fullWidth(),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: TextFormField(
-                          style: TextStyle(color: textColorDark, fontSize: 12),
-                          // Use the field name as the key
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            hintText: "Enter Name",
-                          ),
-                          keyboardType: TextInputType.text,
-                          validator: (value) {
-                            return null;
-                          },
-                          onChanged: (value) {
-                            final formStateProvider =
-                                Provider.of<ProcedureProvider>(context,
-                                    listen: false);
-                            formStateProvider.setFieldValue("Signature", value);
-                          },
-                        ),
-                      ),
-                      const SizedBox(
-                        height: 16,
-                      ),
-                      TextView(
-                          text: "Signature",
-                          textColor: textColorDark,
-                          textFontWeight: FontWeight.normal,
-                          fontSize: 12),
-                      const SizedBox(
-                        height: 8,
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                                builder: (context) =>
-                                    const SignatureProcedureScreen()),
-                          );
-                        },
-                        child: Container(
-                            padding: const EdgeInsets.all(16),
-                            height: 200,
-                            width: context.fullWidth(),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextView(
+                        child: Provider.of<ProcedureProvider>(context,
+                                        listen: false)
+                                    .signatureModel?[index]
+                                    .signature ==
+                                null
+                            ? TextView(
                                 text: "Sign here",
                                 textColor: textColorLight,
                                 textFontWeight: FontWeight.normal,
-                                fontSize: 12)),
+                                fontSize: 12)
+                            : CachedNetworkImage(
+                                placeholder: (context, url) => const Padding(
+                                  padding: EdgeInsets.zero,
+                                  child: CircularProgressIndicator.adaptive(),
+                                ),
+                                imageUrl: Provider.of<ProcedureProvider>(
+                                            context,
+                                            listen: false)
+                                        .signatureModel?[index]
+                                        .signature ??
+                                    "",
+                              ),
                       ),
-                    ],
-                  );
-                },
-                separatorBuilder: (context, index) {
-                  return const Divider(
-                    height: 30,
-                  );
-                },
-                itemCount: signatureModel?.length ?? 0),
+                    ),
+                  ],
+                );
+              },
+              separatorBuilder: (context, index) {
+                return const Divider(
+                  height: 30,
+                );
+              },
+            ),
           ],
         ));
   }
@@ -339,9 +632,16 @@ class SignatureWidget extends StatelessWidget {
 //   }
 // }
 
-class ActionButtons extends StatelessWidget {
-  const ActionButtons({super.key});
+class ActionButtons extends StatefulWidget {
+  final VoidCallback refreshCallback;
 
+  const ActionButtons({super.key, required this.refreshCallback});
+
+  @override
+  State<ActionButtons> createState() => _ActionButtonsState();
+}
+
+class _ActionButtonsState extends State<ActionButtons> {
   @override
   Widget build(BuildContext context) {
     final formStateProvider =
@@ -359,39 +659,95 @@ class ActionButtons extends StatelessWidget {
                     textColor: primaryColor,
                     borderRadius: 8,
                     title: "Save as Draft",
-                    onPressed: () {
-                      // final formStateProvider = Provider.of<ProcedureProvider>(
-                      //     context,
-                      //     listen: false);
-                      // formStateProvider.clearFieldValues();
-                      // saveAsDraft();
-
-                      final formStateProvider = Provider.of<ProcedureProvider>(
-                          context,
-                          listen: false);
-                      finalize(formStateProvider.fieldValues, context);
+                    onPressed: () async {
+                      var isConnected = await isConnectedToNetwork();
+                      if (isConnected && context.mounted) {
+                        context.showCustomDialog();
+                        var sId = Provider.of<ProcedureProvider>(context,
+                                    listen: false)
+                                .myProcedureRequest
+                                ?.sId ??
+                            "";
+                        var childrenModel = Provider.of<ProcedureProvider>(
+                                context,
+                                listen: false)
+                            .myProcedureRequest
+                            ?.children;
+                        var signatureRequestModel =
+                            Provider.of<ProcedureProvider>(context,
+                                    listen: false)
+                                .signatureModel;
+                        var result = await ProcedureViewModel()
+                            .saveAsDraftOemProcedure(
+                                sId, childrenModel, signatureRequestModel);
+                        if (context.mounted) Navigator.pop(context);
+                        result.join(
+                            (failed) =>
+                                {console("failed => ${failed.exception}")},
+                            (loaded) => {
+                                  console("loaded => ${loaded.data}"),
+                                  widget.refreshCallback(),
+                                  context.showSuccessSnackBar(
+                                      "Your changes are saved successfully")
+                                },
+                            (loading) => {
+                                  console("loading => "),
+                                });
+                      }
                     })),
             const SizedBox(
               width: 16,
             ),
             Expanded(
                 child: CustomElevatedButton(
-                    backgroundColor:
-                        (formStateProvider.isValid || Provider.of<ProcedureProvider>(
-                        context,
-                            listen: false).fieldValues.isEmpty) ? primaryColor : Colors.grey,
+                    backgroundColor: (formStateProvider.isValid ||
+                            Provider.of<ProcedureProvider>(context,
+                                    listen: false)
+                                .fieldValues
+                                .isEmpty)
+                        ? primaryColor
+                        : Colors.grey,
                     textColor: Colors.white,
                     borderRadius: 8,
-                    isValid: formStateProvider.isValid || Provider.of<ProcedureProvider>(
-                        context,
-                        listen: false).fieldValues.isEmpty,
+                    isValid: formStateProvider.isValid ||
+                        Provider.of<ProcedureProvider>(context, listen: false)
+                            .fieldValues
+                            .isEmpty,
                     title: "Finalize",
-                    onPressed: () {
-                      final formStateProvider = Provider.of<ProcedureProvider>(
-                          context,
-                          listen: false);
-                      if (formStateProvider.fieldValues.isNotEmpty) {
-                        finalize(formStateProvider.fieldValues, context);
+                    onPressed: () async {
+                      var isConnected = await isConnectedToNetwork();
+                      if (isConnected && context.mounted) {
+                        context.showCustomDialog();
+                        var sId = Provider.of<ProcedureProvider>(context,
+                                    listen: false)
+                                .myProcedureRequest
+                                ?.sId ??
+                            "";
+                        var childrenModel = Provider.of<ProcedureProvider>(
+                                context,
+                                listen: false)
+                            .myProcedureRequest
+                            ?.children;
+                        var signatureRequestModel =
+                            Provider.of<ProcedureProvider>(context,
+                                    listen: false)
+                                .signatureModel;
+                        var result = await ProcedureViewModel()
+                            .finalizeOemProcedure(
+                                sId, childrenModel, signatureRequestModel);
+                        if (context.mounted) Navigator.pop(context);
+                        result.join(
+                            (failed) =>
+                                {console("failed => ${failed.exception}")},
+                            (loaded) => {
+                                  console("loaded => ${loaded.data}"),
+                                  widget.refreshCallback(),
+                                  finalize(
+                                      formStateProvider.fieldValues, context)
+                                },
+                            (loading) => {
+                                  console("loading => "),
+                                });
                       }
                     })),
           ],
@@ -400,23 +756,39 @@ class ActionButtons extends StatelessWidget {
     );
   }
 
-  void saveAsDraft() {}
-
   void finalize(Map<String, dynamic> fieldValues, BuildContext context) {
-    final formStateProvider = Provider.of<ProcedureProvider>(
-        context,
-        listen: false);
+    final formStateProvider =
+        Provider.of<ProcedureProvider>(context, listen: false);
     console('Finalizing with values: $fieldValues');
     console('Finalizing with values: ${formStateProvider.isValid}');
+    setState(() {});
   }
 }
 
 class FieldWidget extends StatelessWidget {
   final ChildrenModel fieldData;
   final bool isBorderShowing;
+  final bool isEditable;
+  final GetInventoryPartListResponse? inventoryPartListResponse;
+  final GetListSupportAccountsResponse? listSupportAccountsResponse;
+  final int index;
+  final int parentIndex;
+  final bool isAChildren;
+  final CurrentUser? userValue;
+  final String procedureId;
 
   const FieldWidget(
-      {super.key, required this.fieldData, required this.isBorderShowing});
+      {super.key,
+      required this.fieldData,
+      required this.isBorderShowing,
+      required this.isEditable,
+      required this.index,
+      required this.parentIndex,
+      required this.userValue,
+      required this.isAChildren,
+      required this.procedureId,
+      required this.listSupportAccountsResponse,
+      required this.inventoryPartListResponse});
 
   @override
   Widget build(BuildContext context) {
@@ -432,6 +804,10 @@ class FieldWidget extends StatelessWidget {
           fieldData: fieldData,
           isRequired: isRequired,
           context: context,
+          isEditable: isEditable,
+          index: index,
+          parentIndex: parentIndex,
+          isAChildren: isAChildren,
         );
       case 'TEXT_AREA_FIELD':
         return TextFieldWidget(
@@ -441,6 +817,11 @@ class FieldWidget extends StatelessWidget {
             keyboardType: TextInputType.text,
             description: description,
             isBorderShowing: isBorderShowing,
+            isEditable: isEditable,
+            index: index,
+            isMultiline: true,
+            parentIndex: parentIndex,
+            isAChildren: isAChildren,
             context: context);
       case 'NUMBER_FIELD':
         return TextFieldWidget(
@@ -450,6 +831,11 @@ class FieldWidget extends StatelessWidget {
             description: description,
             isBorderShowing: isBorderShowing,
             keyboardType: TextInputType.number,
+            isEditable: isEditable,
+            index: index,
+            isMultiline: false,
+            parentIndex: parentIndex,
+            isAChildren: isAChildren,
             context: context);
       case 'DATE_FIELD':
         return DatePickerWidget(
@@ -457,15 +843,38 @@ class FieldWidget extends StatelessWidget {
             fieldData: fieldData,
             isRequired: isRequired,
             description: description,
+            isEditable: isEditable,
+            index: index,
+            parentIndex: parentIndex,
+            isAChildren: isAChildren,
             context: context);
       case 'SECTION':
-        return SectionWidget(sectionData: fieldData);
+        return SectionWidget(
+          sectionData: fieldData,
+          isEditable: isEditable,
+          parentIndex: index,
+          userValue: userValue,
+          procedureId: procedureId,
+          inventoryPartListResponse: inventoryPartListResponse,
+          listSupportAccountsResponse: listSupportAccountsResponse,
+        );
       case 'CHECKLIST_FIELD':
-        return ChecklistFieldWidget(fieldData: fieldData, context: context);
+        return ChecklistFieldWidget(
+          fieldData: fieldData,
+          context: context,
+          index: index,
+          parentIndex: parentIndex,
+          isAChildren: isAChildren,
+          isEditable: isEditable,
+        );
       case 'CHECKBOX_FIELD':
         return CheckboxFieldWidget(
           fieldData: fieldData,
           context: context,
+          index: index,
+          parentIndex: parentIndex,
+          isAChildren: isAChildren,
+          isEditable: isEditable,
         );
       case 'IMAGE_UPLOADER_FIELD':
         return ImageUploaderWidget(
@@ -473,13 +882,24 @@ class FieldWidget extends StatelessWidget {
             fieldData: fieldData,
             isRequired: fieldData.isRequired ?? false,
             description: fieldData.description ?? "",
+            isEditable: isEditable,
+            index: index,
+            userValue: userValue,
+            parentIndex: parentIndex,
+            isAChildren: isAChildren,
+            procedureId: procedureId,
             context: context);
       case 'PARTS_FIELD':
         return PartsFieldWidget(
             fieldData: fieldData,
+            inventoryPartListResponse: inventoryPartListResponse,
             name: fieldData.name ?? "",
             isRequired: fieldData.isRequired ?? false,
             description: fieldData.description ?? "",
+            isEditable: isEditable,
+            index: index,
+            parentIndex: parentIndex,
+            isAChildren: isAChildren,
             context: context);
       case 'SINGLE_SELECT_FIELD':
         return SingleSelectFieldWidget(
@@ -487,14 +907,30 @@ class FieldWidget extends StatelessWidget {
             isRequired: fieldData.isRequired ?? false,
             description: fieldData.description ?? "",
             fieldData: fieldData,
+            isEditable: isEditable,
+            index: index,
+            parentIndex: parentIndex,
+            isAChildren: isAChildren,
             context: context);
       case 'TABLE_FIELD':
-        return TableFieldWidget(fieldData: fieldData, context: context);
+        return TableFieldWidget(
+          fieldData: fieldData,
+          context: context,
+          isEditable: isEditable,
+          index: index,
+          parentIndex: parentIndex,
+          isAChildren: isAChildren,
+        );
       case 'MEMBER_FIELD':
         return MemberFieldWidget(
           name: fieldData.name ?? "",
           fieldData: fieldData,
           context: context,
+          isEditable: isEditable,
+          index: index,
+          parentIndex: parentIndex,
+          isAChildren: isAChildren,
+          listSupportAccountsResponse: listSupportAccountsResponse,
           isRequired: fieldData.isRequired ?? false,
           description: fieldData.description ?? "",
         );
@@ -509,14 +945,24 @@ class FieldWidget extends StatelessWidget {
 class TableFieldWidget extends StatefulWidget {
   final ChildrenModel fieldData;
   final BuildContext context;
+  final bool isEditable;
+  final int index;
+  final int parentIndex;
+  final bool isAChildren;
 
   TableFieldWidget(
-      {super.key, required this.fieldData, required this.context}) {
+      {super.key,
+      required this.fieldData,
+      required this.context,
+      required this.index,
+      required this.parentIndex,
+      required this.isAChildren,
+      required this.isEditable}) {
     if (fieldData.isRequired == true) {
       Future.delayed(const Duration(milliseconds: 100), () {
         final formStateProvider =
             Provider.of<ProcedureProvider>(context, listen: false);
-        formStateProvider.setFieldValue(fieldData.name ?? "", null);
+        formStateProvider.setFieldValue(fieldData.name ?? "", fieldData.value);
       });
     }
   }
@@ -527,35 +973,41 @@ class TableFieldWidget extends StatefulWidget {
 
 class _TableFieldWidgetState extends State<TableFieldWidget> {
   List<List<TextEditingController>> rows = [];
+  late BuildContext _context;
+
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   // Initialize with one empty row
+  //   addRow();
+  // }
 
   @override
   void initState() {
     super.initState();
-    // Initialize with one empty row
-    addRow();
-  }
-
-  void addRow() {
-    // Create a new row with empty controllers
-    List<TextEditingController> newRow = List.generate(
-      widget.fieldData.tableOption?.columns?.length ?? 0,
-      (index) => TextEditingController(),
-    );
-    // Add the new row to the list
-    setState(() {
-      rows.add(newRow);
-    });
-  }
-
-  void deleteRow(int rowIndex) {
-    // Remove the selected row
-    setState(() {
-      rows.removeAt(rowIndex);
-    });
   }
 
   @override
   Widget build(BuildContext context) {
+    _context = context;
+    console("TableFieldWidget => ${widget.fieldData.value}");
+
+    if (widget.fieldData.value != null) {
+      var dataList = widget.fieldData.value;
+      for (var dataMap in dataList) {
+        dataMap.forEach((key, value) {
+          Provider.of<ProcedureProvider>(_context, listen: false)
+              .setTableDataRequestModel(ColumnsModel(sId: key, value: value));
+        });
+        List<TextEditingController> newRow = List.generate(
+          widget.fieldData.tableOption?.columns?.length ?? 0,
+          (index) => TextEditingController(),
+        );
+        rows.add(newRow);
+        setState(() {});
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -616,7 +1068,9 @@ class _TableFieldWidgetState extends State<TableFieldWidget> {
                                 fontSize: 12),
                             GestureDetector(
                                 onTap: () {
-                                  deleteRow(mainIndex);
+                                  if (widget.isEditable) {
+                                    deleteRow(mainIndex);
+                                  }
                                 },
                                 child: SvgPicture.asset(
                                     "assets/images/ic-delete.svg"))
@@ -649,7 +1103,14 @@ class _TableFieldWidgetState extends State<TableFieldWidget> {
                                 Expanded(
                                   flex: 2,
                                   child: TextFormField(
-                                    controller: rows[mainIndex][childIndex],
+                                    enabled: widget.isEditable,
+                                    //controller: rows[mainIndex][childIndex],
+                                    initialValue:
+                                        Provider.of<ProcedureProvider>(_context,
+                                                listen: false)
+                                            .tableDataRequest?[childIndex]
+                                            .value
+                                            .toString(),
                                     decoration: const InputDecoration(
                                         hintText: '-',
                                         border: InputBorder.none),
@@ -680,6 +1141,38 @@ class _TableFieldWidgetState extends State<TableFieldWidget> {
                                       formStateProvider.setFieldValue(
                                           widget.fieldData.name ?? "",
                                           currentTableData);
+
+                                      Provider.of<ProcedureProvider>(context,
+                                              listen: false)
+                                          .tableDataRequest?[mainIndex]
+                                          .sId = columnItem?.sId;
+                                      Provider.of<ProcedureProvider>(context,
+                                              listen: false)
+                                          .tableDataRequest?[mainIndex]
+                                          .value = value;
+
+                                      if (widget.isAChildren) {
+                                        Provider.of<ProcedureProvider>(context,
+                                                    listen: false)
+                                                .myProcedureRequest
+                                                ?.children?[widget.parentIndex]
+                                                .children?[widget.index]
+                                                .value =
+                                            Provider.of<ProcedureProvider>(
+                                                    context,
+                                                    listen: false)
+                                                .tableDataRequest;
+                                      } else {
+                                        Provider.of<ProcedureProvider>(context,
+                                                    listen: false)
+                                                .myProcedureRequest
+                                                ?.children?[widget.index]
+                                                .value =
+                                            Provider.of<ProcedureProvider>(
+                                                    context,
+                                                    listen: false)
+                                                .tableDataRequest;
+                                      }
                                     },
                                   ),
                                 ),
@@ -700,7 +1193,9 @@ class _TableFieldWidgetState extends State<TableFieldWidget> {
               const Divider(),
               GestureDetector(
                 onTap: () {
-                  addRow();
+                  if (widget.isEditable) {
+                    addRow();
+                  }
                 },
                 child: Container(
                     padding: const EdgeInsets.only(top: 8, bottom: 12),
@@ -750,6 +1245,30 @@ class _TableFieldWidgetState extends State<TableFieldWidget> {
     );
   }
 
+  void addRow() {
+    // Create a new row with empty controllers
+    List<TextEditingController> newRow = List.generate(
+      widget.fieldData.tableOption?.columns?.length ?? 0,
+      (index) => TextEditingController(),
+    );
+
+    Provider.of<ProcedureProvider>(_context, listen: false)
+        .setTableDataRequestModel(ColumnsModel());
+    // Add the new row to the list
+    setState(() {
+      rows.add(newRow);
+    });
+  }
+
+  void deleteRow(int rowIndex) {
+    // Remove the selected row
+    Provider.of<ProcedureProvider>(_context, listen: false)
+        .deleteTableDataRequestModel(rowIndex);
+    setState(() {
+      rows.removeAt(rowIndex);
+    });
+  }
+
   @override
   void dispose() {
     // Dispose controllers to prevent memory leaks
@@ -768,6 +1287,12 @@ class ImageUploaderWidget extends StatelessWidget {
   final String description;
   final BuildContext context;
   final ChildrenModel fieldData;
+  final bool isEditable;
+  final int index;
+  final int parentIndex;
+  final bool isAChildren;
+  final CurrentUser? userValue;
+  final String procedureId;
 
   ImageUploaderWidget(
       {super.key,
@@ -775,92 +1300,188 @@ class ImageUploaderWidget extends StatelessWidget {
       required this.fieldData,
       required this.isRequired,
       required this.description,
-      required this.context}) {
-    if (fieldData.isRequired == true) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        final formStateProvider =
-            Provider.of<ProcedureProvider>(context, listen: false);
-        formStateProvider.setFieldValue(fieldData.name ?? "", null);
-      });
-    }
+      required this.context,
+      required this.index,
+      required this.userValue,
+      required this.parentIndex,
+      required this.isAChildren,
+      required this.procedureId,
+      required this.isEditable}) {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      final formStateProvider =
+          Provider.of<ProcedureProvider>(context, listen: false);
+
+      if (fieldData.isRequired == true) {
+        formStateProvider.setFieldValue(fieldData.name ?? "", fieldData.value);
+      }
+      formStateProvider.clearImageRequestModel();
+      if (fieldData.value != null) {
+        formStateProvider.clearImageRequestModel();
+        Provider.of<ProcedureProvider>(context, listen: false).clearImageFieldValue();
+        var value = fieldData.value as List;
+        for (var element in value) {
+          if (element["url"] != null) {
+            console("ImageUploaderWidget  URL=> ${element["url"]}");
+            var imageRequestModel = ImageRequestModel(
+              name: element["name"],
+              size: element["size"],
+              type: element["type"],
+              url: element["url"],
+            );
+            formStateProvider.setImageRequestModel(imageRequestModel);
+          }
+        }
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: context.fullWidth(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const SizedBox(
-            height: 16,
-          ),
-          TextView(
-              text: "$name ${isRequired ? "*" : ""}",
-              textColor: textColorLight,
-              textFontWeight: FontWeight.normal,
-              fontSize: 14),
-          Column(
-            children: [
-              const SizedBox(
-                height: 4,
-              ),
-              TextView(
-                  text: description,
-                  textColor: Colors.black,
-                  textFontWeight: FontWeight.w500,
-                  fontSize: 14),
-            ],
-          ),
-          GestureDetector(
-            onTap: () {
-              final formStateProvider =
-                  Provider.of<ProcedureProvider>(context, listen: false);
-              formStateProvider.setImageFieldValue(
-                  fieldData.name ?? "", "randomString");
-            },
-            child: CustomPaint(
-              painter: DottedBorderPainter(),
-              child: SizedBox(
-                width: context.fullWidth(),
-                // Your content goes here
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Image.asset("assets/images/upload_file.png"),
-                      // SvgPicture.asset("assets/images/upload-file.svg", color: Colors.red, width: 200,),
-                      const SizedBox(
-                        height: 16,
-                      ),
-                      TextView(
-                          text: "Upload file from your device",
-                          textColor: primaryColor,
-                          textFontWeight: FontWeight.normal,
-                          fontSize: 12),
-                      const SizedBox(
-                        height: 10,
-                      ),
-                      TextView(
-                          text: "Supported formats: JPEG, PNG; up to 10MB",
-                          textColor: textColorLight,
-                          textFontWeight: FontWeight.normal,
-                          fontSize: 12),
-                    ],
+    console("ImageUploaderWidget => ${fieldData.value}");
+    final formStateProvider =
+        Provider.of<ProcedureProvider>(context, listen: false);
+
+    return ChangeNotifierProvider.value(
+      value: Provider.of<ProcedureProvider>(context, listen: true),
+      child: SizedBox(
+        width: context.fullWidth(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const SizedBox(
+              height: 16,
+            ),
+            TextView(
+                text: "$name ${isRequired ? "*" : ""}",
+                textColor: textColorLight,
+                textFontWeight: FontWeight.normal,
+                fontSize: 14),
+            Column(
+              children: [
+                const SizedBox(
+                  height: 4,
+                ),
+                TextView(
+                    text: description,
+                    textColor: Colors.black,
+                    textFontWeight: FontWeight.w500,
+                    fontSize: 14),
+              ],
+            ),
+            GestureDetector(
+              onTap: () {
+                if (isEditable) {
+                  BottomSheetImageChooserModal.show(
+                      context,
+                      fieldData.name ?? "",
+                      index,
+                      parentIndex,
+                      isAChildren,
+                      userValue,
+                      procedureId);
+
+                  // formStateProvider.setImageFieldValue(
+                  //     fieldData.name ?? "", "randomString");
+                }
+              },
+              child: CustomPaint(
+                painter: DottedBorderPainter(),
+                child: SizedBox(
+                  width: context.fullWidth(),
+                  // Your content goes here
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        Image.asset("assets/images/upload_file.png"),
+                        // SvgPicture.asset("assets/images/upload-file.svg", color: Colors.red, width: 200,),
+                        const SizedBox(
+                          height: 16,
+                        ),
+                        TextView(
+                            text: "Upload file from your device",
+                            textColor: primaryColor,
+                            textFontWeight: FontWeight.normal,
+                            fontSize: 12),
+                        const SizedBox(
+                          height: 10,
+                        ),
+                        TextView(
+                            text: "Supported formats: JPEG, PNG; up to 10MB",
+                            textColor: textColorLight,
+                            textFontWeight: FontWeight.normal,
+                            fontSize: 12),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(
-            height: 8,
-          ),
-          AttachmentWidget(fieldData: fieldData),
-          const SizedBox(
-            height: 10,
-          ),
-          const Divider()
-        ],
+            const SizedBox(
+              height: 10,
+            ),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: formStateProvider.imageRequestModel?.length ?? 0,
+              itemBuilder: (context, index) {
+                var item = formStateProvider.imageRequestModel?[index];
+                var file = File(item?.url ?? "");
+                String fileName = basename(file.path);
+                String fileExtension = extension(file.path).replaceAll(".", "");
+                console('Picked File Extension: $fileExtension');
+
+                return ListTile(
+                  // leading: SizedBox(
+                  //   height: 24,
+                  //   width: 24,
+                  //   child: Image.file(File(item ?? "")),
+                  // ),
+                  //
+                  leading: SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CachedNetworkImage(
+                      placeholder: (context, url) => const Padding(
+                        padding: EdgeInsets.zero,
+                        child: CircularProgressIndicator.adaptive(),
+                      ),
+                      imageUrl: file.path,
+                    ),
+                  ),
+
+                  title: TextView(
+                      text: fileName ?? "",
+                      textColor: textColorLight,
+                      textFontWeight: FontWeight.normal,
+                      fontSize: 12),
+                  subtitle: TextView(
+                      text: "image/$fileExtension",
+                      textColor: textColorLight,
+                      textFontWeight: FontWeight.normal,
+                      fontSize: 10),
+                  trailing: GestureDetector(
+                    onTap: () {
+                      formStateProvider.deleteImageFieldValue(item?.url ?? "");
+                    },
+                    child: Icon(
+                      Icons.delete,
+                      color: textColorLight,
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(
+              height: 8,
+            ),
+            AttachmentWidget(fieldData: fieldData),
+            const SizedBox(
+              height: 10,
+            ),
+            const Divider()
+          ],
+        ),
       ),
     );
   }
@@ -872,6 +1493,11 @@ class PartsFieldWidget extends StatelessWidget {
   final String description;
   final BuildContext context;
   final ChildrenModel fieldData;
+  final bool isEditable;
+  final GetInventoryPartListResponse? inventoryPartListResponse;
+  final int index;
+  final int parentIndex;
+  final bool isAChildren;
 
   PartsFieldWidget(
       {super.key,
@@ -879,77 +1505,178 @@ class PartsFieldWidget extends StatelessWidget {
       required this.fieldData,
       required this.isRequired,
       required this.description,
-      required this.context}) {
-    if (fieldData.isRequired == true) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        final formStateProvider =
-            Provider.of<ProcedureProvider>(context, listen: false);
-        formStateProvider.setFieldValue(fieldData.name ?? "", null);
-      });
-    }
+      required this.inventoryPartListResponse,
+      required this.context,
+      required this.index,
+      required this.parentIndex,
+      required this.isAChildren,
+      required this.isEditable}) {
+    Future.delayed(const Duration(milliseconds: 0), () {
+      final formStateProvider =
+          Provider.of<ProcedureProvider>(context, listen: false);
+      if (fieldData.isRequired == true) {
+        formStateProvider.setFieldValue(fieldData.name ?? "", fieldData.value);
+        console("PartsFieldWidget value => ${fieldData.value}");
+      }
+      if (fieldData.value != null) {
+        var value = fieldData.value as List;
+        Set<String> stringSet = Set.from(value);
+
+        for (var element in value) {
+          console("PartsFieldWidget element => $element");
+          Provider.of<ProcedureProvider>(context, listen: false)
+              .addPartModelSId(element);
+        }
+        List<PartsModel>? matchingParts = inventoryPartListResponse
+            ?.listOwnOemInventoryPart?.parts
+            ?.where((part) => stringSet.contains(part.sId))
+            .toList();
+        console("PartsFieldWidget  matchingParts => ${matchingParts?.length}");
+
+        matchingParts?.forEach((element) {
+          Provider.of<ProcedureProvider>(context, listen: false)
+              .addPartModel(element);
+        });
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: context.fullWidth(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(
-            height: 16,
-          ),
-          TextView(
-              text: "$name ${isRequired ? "*" : ""}",
-              textColor: textColorLight,
-              textFontWeight: FontWeight.normal,
-              fontSize: 14),
-          Column(
-            children: [
-              const SizedBox(
-                height: 4,
-              ),
-              TextView(
-                  text: description,
-                  textColor: Colors.black,
-                  textFontWeight: FontWeight.w500,
-                  fontSize: 14),
-            ],
-          ),
-          DropdownSearch<String>(
-            //mode: Mode.MENU,
-            //showSearchBox: true,
-            items: const ["A", "B"],
-            selectedItem: "Choose Part",
-            itemAsString: (String? u) => u ?? "",
-            onChanged: (String? data) {
-              final formStateProvider =
-                  Provider.of<ProcedureProvider>(context, listen: false);
+    final formStateProvider =
+        Provider.of<ProcedureProvider>(context, listen: false);
 
-              formStateProvider.setFieldValue(name, data);
-            },
-            dropdownDecoratorProps: DropDownDecoratorProps(
-              dropdownSearchDecoration: InputDecoration(
-                hintText: "Choose Part",
-                contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
-                border: OutlineInputBorder(
-                  borderSide: BorderSide(color: primaryColor, width: 2),
-                  borderRadius: const BorderRadius.all(Radius.circular(8)),
+    return ChangeNotifierProvider.value(
+      value: Provider.of<ProcedureProvider>(context, listen: true),
+      child: SizedBox(
+        width: context.fullWidth(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(
+              height: 16,
+            ),
+            TextView(
+                text: "$name ${isRequired ? "*" : ""}",
+                textColor: textColorLight,
+                textFontWeight: FontWeight.normal,
+                fontSize: 14),
+            Column(
+              children: [
+                const SizedBox(
+                  height: 4,
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: primaryColor, width: .5),
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(8)),
+                TextView(
+                    text: description,
+                    textColor: Colors.black,
+                    textFontWeight: FontWeight.w500,
+                    fontSize: 14),
+              ],
+            ),
+            DropdownSearch<PartsModel>(
+              items:
+                  inventoryPartListResponse?.listOwnOemInventoryPart?.parts ??
+                      [],
+              selectedItem: null,
+              itemAsString: (PartsModel? u) =>
+                  u == null ? "" : u.name.toString(),
+              onChanged: (PartsModel? data) => {
+                Provider.of<ProcedureProvider>(context, listen: false)
+                    .addPartModel(data),
+                Provider.of<ProcedureProvider>(context, listen: false)
+                    .addPartModelSId(data?.sId),
+                if (isAChildren)
+                  {
+                    Provider.of<ProcedureProvider>(context, listen: false)
+                            .myProcedureRequest
+                            ?.children?[parentIndex]
+                            .children?[index]
+                            .value =
+                        Provider.of<ProcedureProvider>(context, listen: false)
+                            .selectedPartsSIdList,
+                  }
+                else
+                  {
+                    Provider.of<ProcedureProvider>(context, listen: false)
+                            .myProcedureRequest
+                            ?.children?[index]
+                            .value =
+                        Provider.of<ProcedureProvider>(context, listen: false)
+                            .selectedPartsSIdList,
+                  }
+              },
+              dropdownDecoratorProps: DropDownDecoratorProps(
+                dropdownSearchDecoration: InputDecoration(
+                  hintText: "Choose Part",
+                  contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide(color: primaryColor, width: 2),
+                    borderRadius: const BorderRadius.all(Radius.circular(8)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: primaryColor, width: .5),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(8)),
+                  ),
                 ),
               ),
             ),
-          ),
-          AttachmentWidget(fieldData: fieldData),
-          const SizedBox(
-            height: 8,
-          ),
-          const Divider()
-        ],
+            ListView.separated(
+              itemCount: formStateProvider.selectedPartsList?.length ?? 0,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemBuilder: (context, index) {
+                final item = formStateProvider.selectedPartsList?[index];
+                return ListTile(
+                  leading: SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CachedNetworkImage(
+                        fit: BoxFit.cover,
+                        width: MediaQuery.of(context).size.width,
+                        placeholder: (context, url) => const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16),
+                                child: CircularProgressIndicator.adaptive(),
+                              ),
+                            ),
+                        errorWidget: (context, url, error) =>
+                            defaultImageBig(context),
+                        imageUrl: item?.image ?? ""),
+                  ),
+                  title: TextView(
+                      text: item?.name ?? "",
+                      textColor: textColorLight,
+                      textFontWeight: FontWeight.normal,
+                      fontSize: 12),
+                  subtitle: TextView(
+                      text: item?.description ?? "",
+                      textColor: textColorLight,
+                      textFontWeight: FontWeight.normal,
+                      fontSize: 10),
+                  trailing: GestureDetector(
+                    onTap: () {
+                      formStateProvider.removePartModel(item);
+                      formStateProvider.removePartModelSId(item?.sId);
+                    },
+                    child: Icon(
+                      Icons.delete,
+                      color: textColorLight,
+                    ),
+                  ),
+                );
+              },
+              separatorBuilder: (BuildContext context, int index) {
+                return const Divider();
+              },
+            ),
+            AttachmentWidget(fieldData: fieldData),
+            const SizedBox(
+              height: 8,
+            ),
+            const Divider()
+          ],
+        ),
       ),
     );
   }
@@ -961,6 +1688,10 @@ class SingleSelectFieldWidget extends StatelessWidget {
   final String description;
   final BuildContext context;
   final ChildrenModel fieldData;
+  final bool isEditable;
+  final int index;
+  final int parentIndex;
+  final bool isAChildren;
 
   SingleSelectFieldWidget(
       {super.key,
@@ -968,19 +1699,31 @@ class SingleSelectFieldWidget extends StatelessWidget {
       required this.isRequired,
       required this.description,
       required this.fieldData,
-      required this.context}) {
-    if (fieldData.isRequired == true) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        final formStateProvider =
-            Provider.of<ProcedureProvider>(context, listen: false);
-        formStateProvider.setFieldValue(fieldData.name ?? "", null);
-      });
-    }
+      required this.context,
+      required this.index,
+      required this.parentIndex,
+      required this.isAChildren,
+      required this.isEditable}) {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      final formStateProvider =
+          Provider.of<ProcedureProvider>(context, listen: false);
+      if (fieldData.isRequired == true) {
+        formStateProvider.setFieldValue(fieldData.name ?? "", fieldData.value);
+      }
+      if (fieldData.value != null) {
+        var value = fieldData.value as String;
+        Provider.of<ProcedureProvider>(context)
+            .setFieldValue(fieldData.name ?? "", value);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final options = fieldData.options ?? [];
+
+    console("SingleSelectFieldWidget => ${fieldData.value}");
+
     return SizedBox(
       width: context.fullWidth(),
       child: Column(
@@ -1028,19 +1771,31 @@ class SingleSelectFieldWidget extends StatelessWidget {
                     value: option,
                     groupValue: Provider.of<ProcedureProvider>(context)
                                 .fieldValues[name] ==
-                            option.name
+                            option.sId
                         ? option
                         : null,
                     onChanged: (OptionsModel? value) {
-                      print("SingleSelectFieldWidget => $value");
-                      print(
-                          "SingleSelectFieldWidget option.name => ${option.name}");
-                      final formStateProvider = Provider.of<ProcedureProvider>(
-                          context,
-                          listen: false);
+                      if (isEditable) {
+                        final formStateProvider =
+                            Provider.of<ProcedureProvider>(context,
+                                listen: false);
 
-                      // Save only the name in fieldValues
-                      formStateProvider.setFieldValue(name, option.name);
+                        // Save only the name in fieldValues
+                        formStateProvider.setFieldValue(name, option.sId);
+
+                        if (isAChildren) {
+                          Provider.of<ProcedureProvider>(context, listen: false)
+                              .myProcedureRequest
+                              ?.children?[parentIndex]
+                              .children?[index]
+                              .value = option.sId;
+                        } else {
+                          Provider.of<ProcedureProvider>(context, listen: false)
+                              .myProcedureRequest
+                              ?.children?[index]
+                              .value = option.sId;
+                        }
+                      }
                     },
                   )
                 // RadioListTile<String>(
@@ -1081,6 +1836,11 @@ class MemberFieldWidget extends StatelessWidget {
   final String description;
   final BuildContext context;
   final ChildrenModel fieldData;
+  final GetListSupportAccountsResponse? listSupportAccountsResponse;
+  final bool isEditable;
+  final int index;
+  final int parentIndex;
+  final bool isAChildren;
 
   MemberFieldWidget(
       {super.key,
@@ -1088,80 +1848,178 @@ class MemberFieldWidget extends StatelessWidget {
       required this.fieldData,
       required this.isRequired,
       required this.description,
-      required this.context}) {
-    if (fieldData.isRequired == true) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        final formStateProvider =
-            Provider.of<ProcedureProvider>(context, listen: false);
-        formStateProvider.setFieldValue(fieldData.name ?? "", null);
-      });
-    }
+      required this.context,
+      required this.index,
+      required this.parentIndex,
+      required this.isAChildren,
+      required this.listSupportAccountsResponse,
+      required this.isEditable}) {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      final formStateProvider =
+          Provider.of<ProcedureProvider>(context, listen: false);
+      if (fieldData.isRequired == true) {
+        formStateProvider.setFieldValue(fieldData.name ?? "", fieldData.value);
+      }
+      if (fieldData.value != null) {
+        Provider.of<ProcedureProvider>(context, listen: false)
+            .clearSupportAccountSid();
+        Provider.of<ProcedureProvider>(context, listen: false)
+            .clearSupportAccount();
+        var value = fieldData.value as List;
+        Set<String> stringSet = Set.from(value);
+
+        for (var element in value) {
+          Provider.of<ProcedureProvider>(context, listen: false)
+              .addSupportAccountSid(element);
+        }
+        var matchingAccounts = listSupportAccountsResponse
+            ?.listOwnOemSupportAccounts
+            ?.where((part) => stringSet.contains(part.sId))
+            .toList();
+        console(
+            "MemberFieldWidget  MemberFieldWidget => ${matchingAccounts?.length}");
+
+        matchingAccounts?.forEach((element) {
+          Provider.of<ProcedureProvider>(context, listen: false)
+              .addSupportAccount(element);
+        });
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: context.fullWidth(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(
-            height: 16,
-          ),
-          TextView(
-              text: "$name ${isRequired ? "*" : ""}",
-              textColor: textColorLight,
-              textFontWeight: FontWeight.normal,
-              fontSize: 14),
-          Column(
-            children: [
-              const SizedBox(
-                height: 4,
-              ),
-              TextView(
-                  text: description,
-                  textColor: Colors.black,
-                  textFontWeight: FontWeight.w500,
-                  fontSize: 14),
-            ],
-          ),
-          DropdownSearch<String>(
-            //mode: Mode.MENU,
-            //showSearchBox: true,
-            items: const ["A", "B"],
-            selectedItem: "Select OEM Agent",
-            itemAsString: (String? u) => u ?? "",
-            onChanged: (String? data) {
-              final formStateProvider =
-                  Provider.of<ProcedureProvider>(context, listen: false);
-
-              formStateProvider.setFieldValue(name, data);
-            },
-            dropdownDecoratorProps: DropDownDecoratorProps(
-              dropdownSearchDecoration: InputDecoration(
-                hintText: "Select Facility",
-                contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
-                border: OutlineInputBorder(
-                  borderSide: BorderSide(color: primaryColor, width: 2),
-                  borderRadius: const BorderRadius.all(Radius.circular(8)),
+    final formStateProvider =
+        Provider.of<ProcedureProvider>(context, listen: false);
+    console("MemberFieldWidget => ${fieldData.value}");
+    return ChangeNotifierProvider.value(
+      value: Provider.of<ProcedureProvider>(context, listen: true),
+      child: SizedBox(
+        width: context.fullWidth(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(
+              height: 16,
+            ),
+            TextView(
+                text: "$name ${isRequired ? "*" : ""}",
+                textColor: textColorLight,
+                textFontWeight: FontWeight.normal,
+                fontSize: 14),
+            Column(
+              children: [
+                const SizedBox(
+                  height: 4,
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: primaryColor, width: .5),
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(8)),
+                TextView(
+                    text: description,
+                    textColor: Colors.black,
+                    textFontWeight: FontWeight.w500,
+                    fontSize: 14),
+              ],
+            ),
+            DropdownSearch<ListOwnOemSupportAccounts>(
+              items:
+                  listSupportAccountsResponse?.listOwnOemSupportAccounts ?? [],
+              selectedItem: null,
+              itemAsString: (ListOwnOemSupportAccounts? u) =>
+                  u == null ? "" : u.name.toString(),
+              onChanged: (ListOwnOemSupportAccounts? data) => {
+                Provider.of<ProcedureProvider>(context, listen: false)
+                    .addSupportAccount(data),
+                Provider.of<ProcedureProvider>(context, listen: false)
+                    .addSupportAccountSid(data?.sId),
+                if (isAChildren)
+                  {
+                    Provider.of<ProcedureProvider>(context, listen: false)
+                            .myProcedureRequest
+                            ?.children?[parentIndex]
+                            .children?[index]
+                            .value =
+                        Provider.of<ProcedureProvider>(context, listen: false)
+                            .selectedSupportAccountSIdList,
+                  }
+                else
+                  {
+                    Provider.of<ProcedureProvider>(context, listen: false)
+                            .myProcedureRequest
+                            ?.children?[index]
+                            .value =
+                        Provider.of<ProcedureProvider>(context, listen: false)
+                            .selectedSupportAccountSIdList,
+                  }
+              },
+              dropdownDecoratorProps: DropDownDecoratorProps(
+                dropdownSearchDecoration: InputDecoration(
+                  hintText: "Choose Part",
+                  contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide(color: primaryColor, width: 2),
+                    borderRadius: const BorderRadius.all(Radius.circular(8)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: primaryColor, width: .5),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(8)),
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(
-            height: 16,
-          ),
-          AttachmentWidget(fieldData: fieldData),
-          const SizedBox(
-            height: 8,
-          ),
-          const Divider()
-        ],
+            ListView.separated(
+              itemCount: formStateProvider.selectedSupportAccount?.length ?? 0,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemBuilder: (context, index) {
+                final item = formStateProvider.selectedSupportAccount?[index];
+                return ListTile(
+                  leading: SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CachedNetworkImage(
+                        fit: BoxFit.cover,
+                        width: MediaQuery.of(context).size.width,
+                        placeholder: (context, url) => const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16),
+                                child: CircularProgressIndicator.adaptive(),
+                              ),
+                            ),
+                        errorWidget: (context, url, error) =>
+                            defaultImageBig(context),
+                        imageUrl: getInitials(item?.name ?? "")),
+                  ),
+                  title: TextView(
+                      text: item?.name ?? "",
+                      textColor: textColorLight,
+                      textFontWeight: FontWeight.normal,
+                      fontSize: 12),
+                  trailing: GestureDetector(
+                    onTap: () {
+                      formStateProvider.removeSupportAccount(item);
+                      formStateProvider.removePartModelSId(item?.sId);
+                    },
+                    child: Icon(
+                      Icons.delete,
+                      color: textColorLight,
+                    ),
+                  ),
+                );
+              },
+              separatorBuilder: (BuildContext context, int index) {
+                return const Divider();
+              },
+            ),
+            const SizedBox(
+              height: 16,
+            ),
+            AttachmentWidget(fieldData: fieldData),
+            const SizedBox(
+              height: 8,
+            ),
+            const Divider()
+          ],
+        ),
       ),
     );
   }
@@ -1172,13 +2030,21 @@ class TextWidget extends StatelessWidget {
   final bool isRequired;
   final BuildContext context;
   final ChildrenModel fieldData;
+  final bool isEditable;
+  final int index;
+  final int parentIndex;
+  final bool isAChildren;
 
   TextWidget(
       {super.key,
       required this.name,
       required this.isRequired,
       required this.fieldData,
-      required this.context}) {
+      required this.context,
+      required this.index,
+      required this.parentIndex,
+      required this.isAChildren,
+      required this.isEditable}) {
     if (fieldData.isRequired == true) {
       Future.delayed(const Duration(milliseconds: 100), () {
         final formStateProvider =
@@ -1215,6 +2081,11 @@ class TextFieldWidget extends StatelessWidget {
   final TextInputType keyboardType;
   final BuildContext context;
   final ChildrenModel fieldData;
+  final bool isEditable;
+  final int index;
+  final int parentIndex;
+  final bool isAChildren;
+  final bool isMultiline;
 
   TextFieldWidget(
       {super.key,
@@ -1224,18 +2095,150 @@ class TextFieldWidget extends StatelessWidget {
       required this.isRequired,
       required this.context,
       required this.fieldData,
-      required this.keyboardType}) {
-    if (fieldData.isRequired == true) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        final formStateProvider =
-            Provider.of<ProcedureProvider>(context, listen: false);
-        formStateProvider.setFieldValue(fieldData.name ?? "", null);
-      });
-    }
+      required this.keyboardType,
+      required this.index,
+      required this.parentIndex,
+      required this.isAChildren,
+      required this.isMultiline,
+      required this.isEditable}) {
+    Future.delayed(const Duration(milliseconds: 0), () {
+      final formStateProvider =
+          Provider.of<ProcedureProvider>(context, listen: false);
+      if (fieldData.isRequired == true) {
+        formStateProvider.setFieldValue(fieldData.name ?? "", fieldData.value);
+      }
+      var value = "";
+      console("TextFieldWidget VALUE => ${fieldData.value}");
+      if (fieldData.value is List) {
+        console("TextFieldWidget VALUE List => ${fieldData.value}");
+        for (int i = 0; i < fieldData.value.length; i++) {
+          var type = fieldData.value[i]['type'];
+          if (type == "paragraph") {
+            List<dynamic> children = fieldData.value[i]['children'];
+
+            for (int j = 0; j < children.length; j++) {
+              var textValue = children[j]['text'];
+
+              value = "$value $textValue";
+
+              if (j == children.length - 1) {
+                value += "\n"; // Add newline
+              }
+            }
+          } else if (type == 'bulleted-list') {
+            List<dynamic> listItems = fieldData.value[i]['children'];
+
+            for (int k = 0; k < listItems.length; k++) {
+              var listItem = listItems[k];
+              var listItemType = listItem['type'];
+              var listItemChildren = listItem['children'];
+
+              for (int l = 0; l < listItemChildren.length; l++) {
+                var listItemText = listItemChildren[l]['text'];
+                value = "$value • $listItemText";
+
+                if (l == listItemChildren.length - 1) {
+                  value += "\n"; // Add newline
+                }
+              }
+            }
+          } else if (type == 'numbered-list') {
+            List<dynamic> listItems = fieldData.value[i]['children'];
+
+            for (int k = 0; k < listItems.length; k++) {
+              var listItem = listItems[k];
+              var listItemType = listItem['type'];
+              var listItemChildren = listItem['children'];
+
+              for (int l = 0; l < listItemChildren.length; l++) {
+                var listItemText = listItemChildren[l]['text'];
+                value = "$value ${k + 1}. $listItemText";
+
+                if (l == listItemChildren.length - 1) {
+                  value += "\n"; // Add newline
+                }
+              }
+            }
+          }
+        }
+        formStateProvider.setFieldValue(fieldData.name ?? "", value);
+      } else if (fieldData.value is String) {
+        console("TextFieldWidget VALUE STRING => ${fieldData.value}");
+        formStateProvider.setFieldValue(fieldData.name ?? "", fieldData.value);
+      }
+      console("Value => $value");
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    var value = "";
+    final formStateProvider =
+        Provider.of<ProcedureProvider>(context, listen: false);
+    if (fieldData.isRequired == true) {
+      formStateProvider.setFieldValue(fieldData.name ?? "", fieldData.value);
+    }
+
+    console("TextFieldWidget VALUE => ${fieldData.value}");
+    if (fieldData.value is List) {
+      console("TextFieldWidget VALUE List => ${fieldData.value}");
+      for (int i = 0; i < fieldData.value.length; i++) {
+        var type = fieldData.value[i]['type'];
+        if (type == "paragraph") {
+          List<dynamic> children = fieldData.value[i]['children'];
+
+          for (int j = 0; j < children.length; j++) {
+            var textValue = children[j]['text'];
+
+            value = "$value $textValue";
+
+            if (j == children.length - 1) {
+              value += "\n"; // Add newline
+            }
+          }
+        } else if (type == 'bulleted-list') {
+          List<dynamic> listItems = fieldData.value[i]['children'];
+
+          for (int k = 0; k < listItems.length; k++) {
+            var listItem = listItems[k];
+            var listItemType = listItem['type'];
+            var listItemChildren = listItem['children'];
+
+            for (int l = 0; l < listItemChildren.length; l++) {
+              var listItemText = listItemChildren[l]['text'];
+              value = "$value • $listItemText";
+
+              if (l == listItemChildren.length - 1) {
+                value += "\n"; // Add newline
+              }
+            }
+          }
+        } else if (type == 'numbered-list') {
+          List<dynamic> listItems = fieldData.value[i]['children'];
+
+          for (int k = 0; k < listItems.length; k++) {
+            var listItem = listItems[k];
+            var listItemType = listItem['type'];
+            var listItemChildren = listItem['children'];
+
+            for (int l = 0; l < listItemChildren.length; l++) {
+              var listItemText = listItemChildren[l]['text'];
+              value = "$value ${k + 1}. $listItemText";
+
+              if (l == listItemChildren.length - 1) {
+                value += "\n"; // Add newline
+              }
+            }
+          }
+        }
+      }
+      formStateProvider.setFieldValue(name ?? "", value);
+    } else if (fieldData.value is String) {
+      value = fieldData.value;
+      console("TextFieldWidget VALUE STRING => ${fieldData.value}");
+      formStateProvider.setFieldValue(name ?? "", value);
+    }
+    console("Value => $value");
     return Container(
       padding: isBorderShowing
           ? const EdgeInsets.fromLTRB(16, 8, 16, 8)
@@ -1278,6 +2281,10 @@ class TextFieldWidget extends StatelessWidget {
             ),
             child: TextFormField(
               key: Key(name),
+              enabled: isEditable,
+              minLines: isMultiline ? 10 : 1,
+              maxLines: isMultiline ? 10 : 1,
+              initialValue: value,
               style: TextStyle(color: textColorDark, fontSize: 12),
               // Use the field name as the key
               decoration: const InputDecoration(
@@ -1292,9 +2299,36 @@ class TextFieldWidget extends StatelessWidget {
                 return null;
               },
               onChanged: (value) {
-                final formStateProvider =
-                    Provider.of<ProcedureProvider>(context, listen: false);
-                formStateProvider.setFieldValue(name, value);
+                // final formStateProvider =
+                //     Provider.of<ProcedureProvider>(context, listen: false);
+                // formStateProvider.setFieldValue(name, value);
+                var body;
+                if (fieldData.type == "TEXT_AREA_FIELD") {
+                  body = [
+                    {
+                      "type": "paragraph",
+                      "children": [
+                        {
+                          "text": value,
+                        },
+                      ]
+                    }
+                  ];
+                } else {
+                  body = value;
+                }
+                if (isAChildren) {
+                  Provider.of<ProcedureProvider>(context, listen: false)
+                      .myProcedureRequest
+                      ?.children?[parentIndex]
+                      .children?[index]
+                      .value = body;
+                } else {
+                  Provider.of<ProcedureProvider>(context, listen: false)
+                      .myProcedureRequest
+                      ?.children?[index]
+                      .value = body;
+                }
               },
             ),
           ),
@@ -1320,6 +2354,10 @@ class DatePickerWidget extends StatelessWidget {
   final bool isRequired;
   final BuildContext context;
   final ChildrenModel fieldData;
+  final bool isEditable;
+  final int index;
+  final int parentIndex;
+  final bool isAChildren;
 
   DatePickerWidget(
       {super.key,
@@ -1327,103 +2365,160 @@ class DatePickerWidget extends StatelessWidget {
       required this.isRequired,
       required this.context,
       required this.fieldData,
-      required this.description}) {
-    if (fieldData.isRequired == true) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        final formStateProvider =
-            Provider.of<ProcedureProvider>(context, listen: false);
-        formStateProvider.setFieldValue(fieldData.name ?? "", null);
-      });
-    }
+      required this.index,
+      required this.parentIndex,
+      required this.isAChildren,
+      required this.description,
+      required this.isEditable}) {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      final formStateProvider =
+          Provider.of<ProcedureProvider>(context, listen: false);
+      if (fieldData.isRequired == true) {
+        formStateProvider.setFieldValue(fieldData.name ?? "", fieldData.value);
+      }
+
+      var value;
+
+      if (fieldData.value is List) {
+        value = fieldData.value[0]['children'][0]['text'];
+        formStateProvider.setFieldValue(fieldData.name ?? "", value);
+      } else if (fieldData.value is String) {
+        value = fieldData.value
+            .toString()
+            .convertStringDDMMYYYHHMMSSDateToEMMMDDYYYY();
+        formStateProvider.setFieldValue(fieldData.name ?? "", value);
+      } else {
+        value = null;
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     DateTime? selectedDate;
-
+    final formStateProvider =
+        Provider.of<ProcedureProvider>(context, listen: false);
     return ChangeNotifierProvider.value(
-      value: Provider.of<ProcedureProvider>(context, listen: true),
-      child:Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(
-            height: 16,
-          ),
-          TextView(
-              text: "$name ${isRequired ? "*" : ""}",
-              textColor: Colors.black,
-              textFontWeight: FontWeight.normal,
-              fontSize: 14),
-          const SizedBox(
-            height: 4,
-          ),
-          TextView(
-              text: description,
-              textColor: Colors.black,
-              textFontWeight: FontWeight.w500,
-              fontSize: 14),
-          const SizedBox(
-            height: 8,
-          ),
-          GestureDetector(
-            onTap: () async {
-              DateTime? pickedDate = await showDatePicker(
-                context: context,
-                initialDate: selectedDate ?? DateTime.now(),
-                firstDate: DateTime(2000),
-                lastDate: DateTime(2101),
-              );
+        value: Provider.of<ProcedureProvider>(context, listen: true),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(
+              height: 16,
+            ),
+            TextView(
+                text: "$name ${isRequired ? "*" : ""}",
+                textColor: Colors.black,
+                textFontWeight: FontWeight.normal,
+                fontSize: 14),
+            const SizedBox(
+              height: 4,
+            ),
+            TextView(
+                text: description,
+                textColor: Colors.black,
+                textFontWeight: FontWeight.w500,
+                fontSize: 14),
+            const SizedBox(
+              height: 8,
+            ),
+            GestureDetector(
+              onTap: () async {
+                if (isEditable) {
+                  DateTime? pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate ?? DateTime.now(),
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2101),
+                  );
 
-              if (pickedDate != null && pickedDate != selectedDate) {
-                // setState(() {
-                //   _selectedDate = pickedDate;
-                // });
-                if (context.mounted) {
-                  // Save the value to the state
-                  final formStateProvider =
-                  Provider.of<ProcedureProvider>(context, listen: false);
-                  formStateProvider.setFieldValue(name, DateFormat('dd/MM/yyyy').format(pickedDate));
+                  if (pickedDate != null && pickedDate != selectedDate) {
+                    // setState(() {
+                    //   _selectedDate = pickedDate;
+                    // });
+                    if (context.mounted) {
+                      // Save the value to the state
+                      final formStateProvider = Provider.of<ProcedureProvider>(
+                          context,
+                          listen: false);
+                      formStateProvider.setFieldValue(
+                          name, DateFormat('dd-MM-yyyy').format(pickedDate));
+
+                      if (isAChildren) {
+                        Provider.of<ProcedureProvider>(context, listen: false)
+                                .myProcedureRequest
+                                ?.children?[parentIndex]
+                                .children?[index]
+                                .value =
+                            DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSS'Z")
+                                .format(pickedDate);
+                      } else {
+                        Provider.of<ProcedureProvider>(context, listen: false)
+                                .myProcedureRequest
+                                ?.children?[index]
+                                .value =
+                            DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSS'Z")
+                                .format(pickedDate);
+                      }
+                    }
+                  }
                 }
-              }
-            },
-            child: Container(
-              width: MediaQuery.of(context).size.width,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                  color: chatBubbleSenderClosed,
-                  borderRadius: BorderRadius.circular(8)),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextView(
-                      text: Provider.of<ProcedureProvider>(context, listen: false).fieldValues[name] ?? "mm/dd/yyy",
-                      textColor: Colors.black,
-                      textFontWeight: FontWeight.normal,
-                      fontSize: 14),
-                  const Icon(Icons.calendar_month)
-                ],
+              },
+              child: Container(
+                width: MediaQuery.of(context).size.width,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                    color: chatBubbleSenderClosed,
+                    borderRadius: BorderRadius.circular(8)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextView(
+                        text: Provider.of<ProcedureProvider>(context,
+                                    listen: false)
+                                .fieldValues[name] ??
+                            fieldData.value ??
+                            "mm/dd/yyy",
+                        textColor: Colors.black,
+                        textFontWeight: FontWeight.normal,
+                        fontSize: 14),
+                    const Icon(Icons.calendar_month)
+                  ],
+                ),
               ),
             ),
-          ),
-          AttachmentWidget(fieldData: fieldData),
-          const SizedBox(
-            height: 8,
-          ),
-          const Divider(),
-        ],
-      )
-    );
+            AttachmentWidget(fieldData: fieldData),
+            const SizedBox(
+              height: 8,
+            ),
+            const Divider(),
+          ],
+        ));
   }
 }
 
 class SectionWidget extends StatelessWidget {
   final ChildrenModel sectionData;
+  final bool isEditable;
+  final int parentIndex;
+  final GetInventoryPartListResponse? inventoryPartListResponse;
+  final GetListSupportAccountsResponse? listSupportAccountsResponse;
+  final CurrentUser? userValue;
+  final String procedureId;
 
-  const SectionWidget({super.key, required this.sectionData});
+  const SectionWidget(
+      {super.key,
+      required this.sectionData,
+      required this.parentIndex,
+      required this.isEditable,
+      required this.userValue,
+      required this.procedureId,
+      required this.listSupportAccountsResponse,
+      required this.inventoryPartListResponse});
 
   @override
   Widget build(BuildContext context) {
-    final sectionChildren = sectionData.children;
+    final sectionChildren = sectionData.children ?? [];
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -1440,10 +2535,19 @@ class SectionWidget extends StatelessWidget {
               textColor: textColorDark,
               textFontWeight: FontWeight.bold,
               fontSize: 14),
-          for (var child in sectionChildren ?? [])
+          for (var entry in sectionChildren.asMap().entries)
+            // for (var child in sectionChildren ?? [])
             FieldWidget(
-              fieldData: child,
+              fieldData: entry.value,
+              index: entry.key,
+              isAChildren: true,
+              parentIndex: parentIndex,
               isBorderShowing: false,
+              procedureId: procedureId,
+              isEditable: isEditable,
+              userValue: userValue,
+              listSupportAccountsResponse: listSupportAccountsResponse,
+              inventoryPartListResponse: inventoryPartListResponse,
             ),
         ],
       ),
@@ -1454,16 +2558,37 @@ class SectionWidget extends StatelessWidget {
 class ChecklistFieldWidget extends StatelessWidget {
   final ChildrenModel fieldData;
   final BuildContext context;
+  final bool isEditable;
+  final int index;
+  final int parentIndex;
+  final bool isAChildren;
 
   ChecklistFieldWidget(
-      {super.key, required this.fieldData, required this.context}) {
-    if (fieldData.isRequired == true) {
-      Future.delayed(const Duration(milliseconds: 100), () {
+      {super.key,
+      required this.fieldData,
+      required this.context,
+      required this.index,
+      required this.parentIndex,
+      required this.isAChildren,
+      required this.isEditable}) {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      final formStateProvider =
+          Provider.of<ProcedureProvider>(context, listen: false);
+      if (fieldData.isRequired == true) {
+        formStateProvider.setFieldValue(fieldData.name ?? "", fieldData.value);
+      }
+      if (fieldData.value is List) {
         final formStateProvider =
             Provider.of<ProcedureProvider>(context, listen: false);
-        formStateProvider.setFieldValue(fieldData.name ?? "", null);
-      });
-    }
+        var value = fieldData.value as List<dynamic>;
+        List<String> selectedOptions = List<String>.from(
+            formStateProvider.fieldValues[fieldData.name] ?? []);
+        for (var element in value) {
+          selectedOptions.add(element);
+        }
+        formStateProvider.setFieldValue(fieldData.name ?? "", selectedOptions);
+      }
+    });
   }
 
   @override
@@ -1472,6 +2597,9 @@ class ChecklistFieldWidget extends StatelessWidget {
     final String description = fieldData.description ?? "";
     final bool isRequired = fieldData.isRequired ?? false;
     final options = fieldData.options ?? [];
+
+    console("ChecklistFieldWidget => ${fieldData.value}");
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -1502,24 +2630,39 @@ class ChecklistFieldWidget extends StatelessWidget {
                 fontSize: 12),
             value: Provider.of<ProcedureProvider>(context)
                     .fieldValues[name]
-                    ?.contains(option.name) ??
+                    ?.contains(option.sId) ??
                 false,
             // Set the actual value based on your logic
             onChanged: (value) {
-              final formStateProvider =
-                  Provider.of<ProcedureProvider>(context, listen: false);
+              if (isEditable) {
+                final formStateProvider =
+                    Provider.of<ProcedureProvider>(context, listen: false);
 
-              if (value != null) {
-                // Update the state with the selected options
-                List<String> selectedOptions = List<String>.from(
-                    formStateProvider.fieldValues[name] ?? []);
-                if (value) {
-                  selectedOptions.add(option.name ?? "");
-                } else {
-                  selectedOptions.remove(option.name);
+                if (value != null) {
+                  // Update the state with the selected options
+                  List<String> selectedOptions = List<String>.from(
+                      formStateProvider.fieldValues[name] ?? []);
+                  if (value) {
+                    selectedOptions.add(option.sId ?? "");
+                  } else {
+                    selectedOptions.remove(option.sId);
+                  }
+
+                  if (isAChildren) {
+                    Provider.of<ProcedureProvider>(context, listen: false)
+                        .myProcedureRequest
+                        ?.children?[parentIndex]
+                        .children?[index]
+                        .value = selectedOptions;
+                  } else {
+                    Provider.of<ProcedureProvider>(context, listen: false)
+                        .myProcedureRequest
+                        ?.children?[index]
+                        .value = selectedOptions;
+                  }
+
+                  formStateProvider.setFieldValue(name, selectedOptions);
                 }
-
-                formStateProvider.setFieldValue(name, selectedOptions);
               }
             },
           ),
@@ -1536,29 +2679,46 @@ class ChecklistFieldWidget extends StatelessWidget {
 class CheckboxFieldWidget extends StatelessWidget {
   final ChildrenModel fieldData;
   final BuildContext context;
+  final bool isEditable;
+  final int index;
+  final int parentIndex;
+  final bool isAChildren;
 
   CheckboxFieldWidget(
-      {super.key, required this.fieldData, required this.context}) {
-    if (fieldData.isRequired == true) {
-      Future.delayed(const Duration(milliseconds: 100), () {
+      {super.key,
+      required this.fieldData,
+      required this.context,
+      required this.index,
+      required this.parentIndex,
+      required this.isAChildren,
+      required this.isEditable}) {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      final formStateProvider =
+          Provider.of<ProcedureProvider>(context, listen: false);
+      if (fieldData.isRequired == true) {
+        formStateProvider.setFieldValue(fieldData.name ?? "", fieldData.value);
+      }
+
+      if (fieldData.value != null) {
         final formStateProvider =
             Provider.of<ProcedureProvider>(context, listen: false);
-        formStateProvider.setFieldValue(fieldData.name ?? "", null);
-      });
-    }
+        var value = fieldData.value;
+
+        if (value == true) {
+          formStateProvider.setFieldValue(fieldData.name ?? "", true);
+        }
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    // final String name = fieldData['name'];
-    // final bool isRequired = fieldData['isRequired'];
-    // final String description = fieldData['description'] ?? "";
-    // final List<dynamic> options = fieldData['options'];
-
     final String name = fieldData.name ?? "";
     final String description = fieldData.description ?? "";
     final bool isRequired = fieldData.isRequired ?? false;
     final options = fieldData.options ?? [];
+
+    console("CheckboxFieldWidget => ${fieldData.value}");
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1586,26 +2746,35 @@ class CheckboxFieldWidget extends StatelessWidget {
               textColor: Colors.black,
               textFontWeight: FontWeight.normal,
               fontSize: 14),
-          value: Provider.of<ProcedureProvider>(context)
-                  .fieldValues[name]
-                  ?.contains(fieldData.name) ??
+          value: Provider.of<ProcedureProvider>(context).fieldValues[name] ??
               false,
-          // Set the actual value based on your logic
           onChanged: (value) {
-            final formStateProvider =
-                Provider.of<ProcedureProvider>(context, listen: false);
+            if (isEditable) {
+              final formStateProvider =
+                  Provider.of<ProcedureProvider>(context, listen: false);
 
-            if (value != null) {
-              // Update the state with the selected options
-              List<String> selectedOptions =
-                  List<String>.from(formStateProvider.fieldValues[name] ?? []);
-              if (value) {
-                selectedOptions.add(fieldData.name ?? "");
-              } else {
-                selectedOptions.remove(fieldData.name);
+              if (value != null) {
+                if (isAChildren) {
+                  Provider.of<ProcedureProvider>(context, listen: false)
+                      .myProcedureRequest
+                      ?.children?[parentIndex]
+                      .children?[index]
+                      .value = value;
+                } else {
+                  Provider.of<ProcedureProvider>(context, listen: false)
+                      .myProcedureRequest
+                      ?.children?[index]
+                      .value = value;
+                }
+
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  if (value == true) {
+                    formStateProvider.removeFieldValue(name);
+                  } else {
+                    formStateProvider.setFieldValue(name, value);
+                  }
+                });
               }
-
-              formStateProvider.setFieldValue(name, selectedOptions);
             }
           },
         ),
@@ -1655,10 +2824,25 @@ class AttachmentWidget extends StatelessWidget {
                     launchURL(item?.url ?? "");
                   }
                 },
-                contentPadding: const EdgeInsets.fromLTRB(16,0,16,0),
-                leading: Icon(Icons.document_scanner, color: textColorLight, size: 36,),
-                title: TextView(text: item?.name ?? "", textColor: textColorLight, textFontWeight: FontWeight.bold, fontSize: 12, isEllipsis: true,),
-                subtitle: TextView(text: "${getFileType(item?.type ?? "")} • ${getFileSizeInKBs(item?.size ?? "")}", textColor: textColorLight, textFontWeight: FontWeight.normal, fontSize: 12),
+                contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                leading: Icon(
+                  Icons.document_scanner,
+                  color: textColorLight,
+                  size: 36,
+                ),
+                title: TextView(
+                  text: item?.name ?? "",
+                  textColor: textColorLight,
+                  textFontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  isEllipsis: true,
+                ),
+                subtitle: TextView(
+                    text:
+                        "${getFileType(item?.type ?? "")} • ${getFileSizeInKBs(item?.size ?? "")}",
+                    textColor: textColorLight,
+                    textFontWeight: FontWeight.normal,
+                    fontSize: 12),
               );
             },
           )
@@ -1667,90 +2851,4 @@ class AttachmentWidget extends StatelessWidget {
     }
     return const SizedBox();
   }
-
-
 }
-
-
-/*
-* GET PART LIST
-*
-{operationName: "ListOwnOemInventoryPart",…}
-operationName
-:
-"ListOwnOemInventoryPart"
-query
-:
-"query ListOwnOemInventoryPart($params: InputInventoryQueryParams) {\n  listOwnOemInventoryPart(params: $params) {\n    currentPage\n    limit\n    skip\n    totalCount\n    parts {\n      ...InventoryPartBasicData\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment InventoryPartBasicData on InventoryPart {\n  _id\n  name\n  articleNumber\n  description\n  image\n  thumbnail\n  oem {\n    ...OemBasicData\n    __typename\n  }\n  customFields {\n    _id\n    fieldId {\n      ...CustomAdditionFieldData\n      __typename\n    }\n    value\n    __typename\n  }\n  __typename\n}\n\nfragment OemBasicData on Oem {\n  _id\n  logo\n  thumbnail\n  backgroundColor\n  brandLogo\n  heading\n  subHeading\n  paragraph\n  textColor\n  name\n  urlOemFacility\n  slug\n  allowFollowersMyWorkOrders\n  statuses {\n    _id\n    label\n    color\n    __typename\n  }\n  notification {\n    email {\n      internal\n      internalUsers {\n        _id\n        name\n        __typename\n      }\n      notifyOnMaintenanceWorkOrderCreation\n      maintenanceWorkOrderCreationNotifyTo {\n        _id\n        name\n        __typename\n      }\n      notifyOnMessageOnUnassignedWorkOrder\n      messageOnUnassignedWorkOrderNotifyTo {\n        _id\n        name\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment CustomAdditionFieldData on CustomAdditionalField {\n  _id\n  type\n  slug\n  label\n  fieldType\n  isAdditionalField\n  enabled\n  created_at\n  order\n  oem {\n    _id\n    name\n    __typename\n  }\n  options {\n    _id\n    value\n    color\n    __typename\n  }\n  __typename\n}\n"
-variables
-:
-{params: {limit: 100, skip: 0, where: {searchQuery: ""}}}
-*
-*
-*
-* */
-
-
-
-/*
-* TODO
-* WHEN CLICK ON FINALIZE SHOW A POPUP
-* 1. IF SIGNATURE
-*
-* 2. UPLOAD SIGNATURE
-{variables: {filename: "Signature-sign", filetype: "image/png",…},…}
-query
-:
-"mutation ($filename: String!, $filetype: String!, $type: String, $forceCustomPath: Boolean) {\n  _safeSignS3(filename: $filename, filetype: $filetype, type: $type, forceCustomPath: $forceCustomPath) {\n    url\n    signedRequest\n    __typename\n  }\n}\n"
-variables
-:
-{filename: "Signature-sign", filetype: "image/png",…}
-filename
-:
-"Signature-sign"
-filetype
-:
-"image/png"
-forceCustomPath
-:
-true
-type
-:
-"oem/mmmtechdemo/procedures/6581a97a9944a8500087a37d/file"
-*
-* 3. GET SIGNATURE
-{variables: {filename: "_67b78c6d-c450-4f31-ba56-f3da69c24401.jpeg", filetype: "image/jpeg",…},…}
-query
-:
-"mutation ($filename: String!, $filetype: String!, $type: String, $forceCustomPath: Boolean) {\n  _safeSignS3(filename: $filename, filetype: $filetype, type: $type, forceCustomPath: $forceCustomPath) {\n    url\n    signedRequest\n    __typename\n  }\n}\n"
-variables
-:
-{filename: "_67b78c6d-c450-4f31-ba56-f3da69c24401.jpeg", filetype: "image/jpeg",…}
-*
-* 4. FINALIZE API CALL
-{operationName: "finalizeOwnOemProcedure", variables: {input: {_id: "6581a97a9944a8500087a37d",…}},…}
-operationName
-:
-"finalizeOwnOemProcedure"
-query
-:
-"mutation finalizeOwnOemProcedure($input: InputFinalizeProcedure!) {\n  finalizeOwnOemProcedure(input: $input)\n}\n"
-variables
-:
-{input: {_id: "6581a97a9944a8500087a37d",…}}
-*
-*5. GET PROCEDURE BY ID API CALL
-{operationName: "getOwnOemProcedureById", variables: {id: "6581a97a9944a8500087a37d"},…}
-operationName
-:
-"getOwnOemProcedureById"
-query
-:
-"query getOwnOemProcedureById($id: ID!) {\n  getOwnOemProcedureById(id: $id) {\n    ...ProcedureInstanceFullData\n    __typename\n  }\n}\n\nfragment ProcedureInstanceFullData on Procedure {\n  _id\n  name\n  state\n  description\n  createdAt\n  updatedAt\n  pdfUrl\n  signatures {\n    _id\n    signatoryTitle\n    name\n    date\n    signatureUrl\n    __typename\n  }\n  submittedBy {\n    _id\n    name\n    __typename\n  }\n  children {\n    ...ProcedureInstanceChildren\n    children {\n      ...ProcedureInstanceChildren\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ProcedureInstanceChildren on ProcedureNode {\n  _id\n  name\n  type\n  description\n  isRequired\n  value\n  attachments {\n    _id\n    name\n    type\n    url\n    size\n    __typename\n  }\n  options {\n    _id\n    name\n    __typename\n  }\n  tableOption {\n    _id\n    columns {\n      _id\n      heading\n      width\n      __typename\n    }\n    rowCount\n    __typename\n  }\n  __typename\n}\n"
-variables
-:
-{id: "6581a97a9944a8500087a37d"}
-*
-*
-*
-* */
