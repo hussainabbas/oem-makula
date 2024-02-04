@@ -1,7 +1,8 @@
 
 import 'package:floor/floor.dart';
 import 'package:makula_oem/database/type_converters/current_user_converter.dart';
-import 'package:makula_oem/database/type_converters/list_own_oem_support_accounts_converter.dart';
+
+import '../../database/type_converters/list_own_oem_support_account_converter.dart';
 
 @entity
 class ListAssignee {

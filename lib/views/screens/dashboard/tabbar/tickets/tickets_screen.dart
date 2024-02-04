@@ -38,6 +38,7 @@ class _TicketsScreenState extends State<TicketsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       floatingActionButton: FloatingActionButton(
         backgroundColor: primaryColor,
         onPressed: () async {
@@ -76,22 +77,22 @@ class _TicketsScreenState extends State<TicketsScreen>
                 labelPadding: const EdgeInsets.symmetric(horizontal: 10.0),
                 unselectedLabelColor: textColorLight,
                 unselectedLabelStyle: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 11,
                     fontWeight: FontWeight.w500,
                     fontFamily: 'Manrope'),
                 labelStyle: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                     fontFamily: 'Manrope'),
                 tabs: const [
                   Tab(
-                    text: myTicketLabel,
+                    text: "My Work Orders",
                   ),
                   Tab(
-                    text: openTicketsLabel,
+                    text: "Open Work Orders",
                   ),
                   Tab(
-                    text: closedTicketsLabel,
+                    text: "Closed Work Orders",
                   ),
                 ],
               )),

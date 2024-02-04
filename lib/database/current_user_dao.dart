@@ -12,4 +12,7 @@ abstract class CurrentUserDao {
   @delete
   Future<void> deleteCurrentUserResponse(CurrentUser data);
 
+  @Query('DELETE FROM CurrentUser')
+  Future<void> deleteAllRecords();
+
 }

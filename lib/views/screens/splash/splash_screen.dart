@@ -140,11 +140,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
   _saveOEMStatues(StatusData response) async {
     console("_saveOEMStatues => ${response.listOwnOemOpenTickets?.length}");
-    // await HiveResources.oemStatusBox?.put(OfflineResources.OEM_STATUS_RESPONSE, response);
-    //await appPreferences.setData(AppPreferences.STATUES, response);
+    await appDatabase?.oemStatusDao.insertGetOemStatusesResponse(response);
     if (context.mounted) {
-      Navigator.of(context).pushNamedAndRemoveUntil(
-          dashboardScreenRoute, (Route<dynamic> route) => false);
+     Navigator.of(context).pushNamedAndRemoveUntil(
+        dashboardScreenRoute, (Route<dynamic> route) => false);
     }
   }
 

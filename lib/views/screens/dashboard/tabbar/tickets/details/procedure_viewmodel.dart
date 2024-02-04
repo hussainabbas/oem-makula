@@ -3,6 +3,7 @@ import 'package:makula_oem/helper/graphQL/api_calls.dart';
 import 'package:makula_oem/helper/graphQL/api_result_state.dart';
 import 'package:makula_oem/helper/graphQL/graph_ql_config.dart';
 import 'package:makula_oem/helper/model/attach_procedure_to_work_order_response.dart';
+import 'package:makula_oem/helper/model/detach_procedure_response.dart';
 import 'package:makula_oem/helper/model/get_inventory_part_list_response.dart';
 import 'package:makula_oem/helper/model/get_list_support_accounts_response.dart';
 import 'package:makula_oem/helper/model/get_procedure_by_id_response.dart';
@@ -230,6 +231,58 @@ class ProcedureViewModel {
     } else if (result.data != null) {
       console("getListSupportAccounts - data => ${result.data}");
       var response = GetListSupportAccountsResponse.fromJson(result.data!);
+      return ApiResultState.loaded(response);
+    }
+    return ApiResultState.failed(unexpectedError);
+  }
+
+  Future<ApiResultState> detachProcedure(
+    String workOrderId,
+    String procedureId,
+  ) async {
+    GraphQLConfig graphQLConfiguration = GraphQLConfig();
+    GraphQLClient client = graphQLConfiguration.clientToQuery();
+    QueryResult result = await client.mutate(
+      MutationOptions(
+        variables: {
+          "input": {
+            "workOrderId": workOrderId,
+            "procedureId": procedureId,
+          }
+        },
+        document: gql(DETACH_PROCEDURE),
+        fetchPolicy: FetchPolicy.noCache,
+        cacheRereadPolicy: CacheRereadPolicy.ignoreAll,
+      ),
+    );
+    if (result.isLoading) {
+      return ApiResultState.loading();
+    }
+    if (result.hasException) {
+      console("detachProcedure - hasException => ${result.exception}");
+      return ApiResultState.failed(result.hasException.toString());
+    } else if (result.data != null) {
+      console("detachProcedure Success => ${result.data}");
+      var response = DetachOwnOemProcedureFromWorkOrder.fromJson(result.data!);
+      return ApiResultState.loaded(response);
+    }
+    return ApiResultState.failed(unexpectedError);
+  }
+
+  Future<ApiResultState> downloadProcedurePDF(String id, String uuid) async {
+    GraphQLConfig graphQLConfiguration = GraphQLConfig();
+    GraphQLClient client = graphQLConfiguration.clientToQuery();
+    QueryResult result = await client.query(QueryOptions(
+        variables: {"id": id, "uuid": uuid},
+        document: gql(DOWNLOAD_PROCEDURE_PDF)));
+    if (result.isLoading) {
+      return ApiResultState.loading();
+    }
+    if (result.hasException) {
+      console("downloadProcedurePDF - hasException => ${result.exception}");
+      return ApiResultState.failed(unexpectedError);
+    } else if (result.data != null) {
+      var response = DownloadProcedurePDFResponse.fromJson(result.data!);
       return ApiResultState.loaded(response);
     }
     return ApiResultState.failed(unexpectedError);

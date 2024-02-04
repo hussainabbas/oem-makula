@@ -83,6 +83,10 @@ class _$AppDatabase extends AppDatabase {
 
   ListOwnOemProcedureTemplatesDao? _getProcedureByIdResponseDaoInstance;
 
+  GetListSupportAccountsResponseDao? _getListSupportAccountsResponseDaoInstance;
+
+  PartModelDao? _partModelDaoInstance;
+
   Future<sqflite.Database> open(
     String path,
     List<Migration> migrations, [
@@ -109,7 +113,7 @@ class _$AppDatabase extends AppDatabase {
         await database.execute(
             'CREATE TABLE IF NOT EXISTS `CurrentUser` (`sId` TEXT, `name` TEXT, `username` TEXT, `role` TEXT, `email` TEXT, `info` TEXT, `organizationType` TEXT, `notificationChannelGroupName` TEXT, `organizationName` TEXT, `chatToken` TEXT, `notificationChannel` TEXT, `chatUUID` TEXT, `chatKeys` TEXT, PRIMARY KEY (`sId`))');
         await database.execute(
-            'CREATE TABLE IF NOT EXISTS `StatusData` (`id` INTEGER, `listOwnOemOpenTickets` TEXT, PRIMARY KEY (`id`))');
+            'CREATE TABLE IF NOT EXISTS `StatusData` (`listOwnOemOpenTickets` TEXT, PRIMARY KEY (`listOwnOemOpenTickets`))');
         await database.execute(
             'CREATE TABLE IF NOT EXISTS `ListOwnOemOpenTickets` (`id` INTEGER, `oem` TEXT, PRIMARY KEY (`id`))');
         await database.execute(
@@ -150,6 +154,14 @@ class _$AppDatabase extends AppDatabase {
             'CREATE TABLE IF NOT EXISTS `OptionsModel` (`sId` TEXT, `name` TEXT, PRIMARY KEY (`sId`))');
         await database.execute(
             'CREATE TABLE IF NOT EXISTS `ColumnsModel` (`sId` TEXT, `heading` TEXT, `width` INTEGER, `value` TEXT NOT NULL, PRIMARY KEY (`sId`))');
+        await database.execute(
+            'CREATE TABLE IF NOT EXISTS `GetListSupportAccountsResponse` (`listOwnOemSupportAccounts` TEXT, PRIMARY KEY (`listOwnOemSupportAccounts`))');
+        await database.execute(
+            'CREATE TABLE IF NOT EXISTS `ListSupportAccounts` (`sId` TEXT, `name` TEXT, `username` TEXT, PRIMARY KEY (`sId`))');
+        await database.execute(
+            'CREATE TABLE IF NOT EXISTS `ListOwnOemInventoryPartModel` (`parts` TEXT, PRIMARY KEY (`parts`))');
+        await database.execute(
+            'CREATE TABLE IF NOT EXISTS `PartsModel` (`sId` TEXT, `name` TEXT, `articleNumber` TEXT, `description` TEXT, `image` TEXT, `thumbnail` TEXT, PRIMARY KEY (`sId`))');
 
         await callback?.onCreate?.call(database, version);
       },
@@ -221,6 +233,17 @@ class _$AppDatabase extends AppDatabase {
     return _getProcedureByIdResponseDaoInstance ??=
         _$ListOwnOemProcedureTemplatesDao(database, changeListener);
   }
+
+  @override
+  GetListSupportAccountsResponseDao get getListSupportAccountsResponseDao {
+    return _getListSupportAccountsResponseDaoInstance ??=
+        _$GetListSupportAccountsResponseDao(database, changeListener);
+  }
+
+  @override
+  PartModelDao get partModelDao {
+    return _partModelDaoInstance ??= _$PartModelDao(database, changeListener);
+  }
 }
 
 class _$LoginMobileDao extends LoginMobileDao {
@@ -262,6 +285,11 @@ class _$LoginMobileDao extends LoginMobileDao {
         mapper: (Map<String, Object?> row) => LoginMobile(
             token: row['token'] as String?,
             refreshToken: row['refreshToken'] as String?));
+  }
+
+  @override
+  Future<void> deleteAllLoginMobileRecords() async {
+    await _queryAdapter.queryNoReturn('DELETE FROM LoginMobile');
   }
 
   @override
@@ -352,6 +380,11 @@ class _$CurrentUserDao extends CurrentUserDao {
   }
 
   @override
+  Future<void> deleteAllRecords() async {
+    await _queryAdapter.queryNoReturn('DELETE FROM CurrentUser');
+  }
+
+  @override
   Future<void> insertCurrentUserDetailsIntoDb(CurrentUser data) async {
     await _currentUserInsertionAdapter.insert(data, OnConflictStrategy.replace);
   }
@@ -371,7 +404,15 @@ class _$GetOemStatusesResponseDao extends GetOemStatusesResponseDao {
             database,
             'StatusData',
             (StatusData item) => <String, Object?>{
-                  'id': item.id,
+                  'listOwnOemOpenTickets':
+                      _listOwnOemOpenTicketsListModelConverter
+                          .encode(item.listOwnOemOpenTickets)
+                }),
+        _statusDataUpdateAdapter = UpdateAdapter(
+            database,
+            'StatusData',
+            ['listOwnOemOpenTickets'],
+            (StatusData item) => <String, Object?>{
                   'listOwnOemOpenTickets':
                       _listOwnOemOpenTicketsListModelConverter
                           .encode(item.listOwnOemOpenTickets)
@@ -385,6 +426,8 @@ class _$GetOemStatusesResponseDao extends GetOemStatusesResponseDao {
 
   final InsertionAdapter<StatusData> _statusDataInsertionAdapter;
 
+  final UpdateAdapter<StatusData> _statusDataUpdateAdapter;
+
   @override
   Future<List<StatusData>> findAllGetOemStatusesResponses() async {
     return _queryAdapter.queryList('SELECT * FROM StatusData',
@@ -394,9 +437,19 @@ class _$GetOemStatusesResponseDao extends GetOemStatusesResponseDao {
   }
 
   @override
+  Future<void> deleteAllRecords() async {
+    await _queryAdapter.queryNoReturn('DELETE FROM StatusData');
+  }
+
+  @override
   Future<void> insertGetOemStatusesResponse(StatusData entity) async {
     await _statusDataInsertionAdapter.insert(
         entity, OnConflictStrategy.replace);
+  }
+
+  @override
+  Future<void> updateGetOemStatusesResponse(StatusData entity) async {
+    await _statusDataUpdateAdapter.update(entity, OnConflictStrategy.replace);
   }
 }
 
@@ -449,6 +502,11 @@ class _$ListUserOpenTicketsDao extends ListUserOpenTicketsDao {
         mapper: (Map<String, Object?> row) => ListUserOpenTickets(
             openTicket:
                 _listOpenTicketConverter.decode(row['openTicket'] as String?)));
+  }
+
+  @override
+  Future<void> deleteAllRecords() async {
+    await _queryAdapter.queryNoReturn('DELETE FROM ListUserOpenTickets');
   }
 
   @override
@@ -527,6 +585,11 @@ class _$ListUserCloseTicketsDao extends ListUserCloseTicketsDao {
   }
 
   @override
+  Future<void> deleteAllRecords() async {
+    await _queryAdapter.queryNoReturn('DELETE FROM ListUserCloseTickets');
+  }
+
+  @override
   Future<void> insertListUserCloseTickets(
       ListUserCloseTickets listUserOpenTickets) async {
     await _listUserCloseTicketsInsertionAdapter.insert(
@@ -597,6 +660,11 @@ class _$ListOpenTicketsDao extends ListOpenTicketsDao {
   }
 
   @override
+  Future<void> deleteAllRecords() async {
+    await _queryAdapter.queryNoReturn('DELETE FROM ListOpenTickets');
+  }
+
+  @override
   Future<void> insertListOpenTickets(ListOpenTickets listOpenTickets) async {
     await _listOpenTicketsInsertionAdapter.insert(
         listOpenTickets, OnConflictStrategy.abort);
@@ -664,6 +732,11 @@ class _$ListCloseTicketsDao extends ListCloseTicketsDao {
         mapper: (Map<String, Object?> row) => ListCloseTickets(
             closeTickets: _listOpenTicketConverter
                 .decode(row['closeTickets'] as String?)));
+  }
+
+  @override
+  Future<void> deleteAllRecords() async {
+    await _queryAdapter.queryNoReturn('DELETE FROM ListCloseTickets');
   }
 
   @override
@@ -744,6 +817,11 @@ class _$GetTicketDetailResponseDao extends GetTicketDetailResponseDao {
   }
 
   @override
+  Future<void> deleteAllRecords() async {
+    await _queryAdapter.queryNoReturn('DELETE FROM GetOwnOemTicketById');
+  }
+
+  @override
   Future<void> insertOrUpdateTicketDetailResponse(
       GetOwnOemTicketById ticketDetailResponse) async {
     await _getOwnOemTicketByIdInsertionAdapter.insert(
@@ -780,6 +858,11 @@ class _$ListAssigneeDao extends ListAssigneeDao {
         mapper: (Map<String, Object?> row) => ListAssignee(
             listOwnOemSupportAccounts: _listOwnOemSupportAccountsConverter
                 .decode(row['listOwnOemSupportAccounts'] as String?)));
+  }
+
+  @override
+  Future<void> deleteAllRecords() async {
+    await _queryAdapter.queryNoReturn('DELETE FROM ListAssignee');
   }
 
   @override
@@ -834,6 +917,12 @@ class _$ProcedureTemplatesDao extends ProcedureTemplatesDao {
   }
 
   @override
+  Future<void> deleteAllRecords() async {
+    await _queryAdapter
+        .queryNoReturn('DELETE FROM GetProcedureTemplatesResponse');
+  }
+
+  @override
   Future<void> insertOrUpdate(GetProcedureTemplatesResponse response) async {
     await _getProcedureTemplatesResponseInsertionAdapter.insert(
         response, OnConflictStrategy.abort);
@@ -862,6 +951,24 @@ class _$ListOwnOemProcedureTemplatesDao
                   'children': _listChildrenModalConverter.encode(item.children),
                   'pageHeader': item.pageHeader,
                   'value': _dynamicValueConverter.encode(item.value)
+                }),
+        _listOwnOemProcedureTemplatesUpdateAdapter = UpdateAdapter(
+            database,
+            'ListOwnOemProcedureTemplates',
+            ['sId'],
+            (ListOwnOemProcedureTemplates item) => <String, Object?>{
+                  'sId': item.sId,
+                  'name': item.name,
+                  'state': item.state,
+                  'pdfUrl': item.pdfUrl,
+                  'description': item.description,
+                  'createdAt': item.createdAt,
+                  'updatedAt': item.updatedAt,
+                  'signatures':
+                      _listSignatureModalConverter.encode(item.signatures),
+                  'children': _listChildrenModalConverter.encode(item.children),
+                  'pageHeader': item.pageHeader,
+                  'value': _dynamicValueConverter.encode(item.value)
                 });
 
   final sqflite.DatabaseExecutor database;
@@ -872,6 +979,9 @@ class _$ListOwnOemProcedureTemplatesDao
 
   final InsertionAdapter<ListOwnOemProcedureTemplates>
       _listOwnOemProcedureTemplatesInsertionAdapter;
+
+  final UpdateAdapter<ListOwnOemProcedureTemplates>
+      _listOwnOemProcedureTemplatesUpdateAdapter;
 
   @override
   Future<ListOwnOemProcedureTemplates?> getProcedureById(String id) async {
@@ -895,10 +1005,109 @@ class _$ListOwnOemProcedureTemplatesDao
   }
 
   @override
+  Future<void> deleteAllRecords() async {
+    await _queryAdapter
+        .queryNoReturn('DELETE FROM ListOwnOemProcedureTemplates');
+  }
+
+  @override
   Future<void> insertListOwnOemProcedureTemplatesById(
       ListOwnOemProcedureTemplates template) async {
     await _listOwnOemProcedureTemplatesInsertionAdapter.insert(
         template, OnConflictStrategy.replace);
+  }
+
+  @override
+  Future<void> updateListOwnOemProcedureTemplates(
+      ListOwnOemProcedureTemplates template) async {
+    await _listOwnOemProcedureTemplatesUpdateAdapter.update(
+        template, OnConflictStrategy.replace);
+  }
+}
+
+class _$GetListSupportAccountsResponseDao
+    extends GetListSupportAccountsResponseDao {
+  _$GetListSupportAccountsResponseDao(
+    this.database,
+    this.changeListener,
+  )   : _queryAdapter = QueryAdapter(database),
+        _getListSupportAccountsResponseInsertionAdapter = InsertionAdapter(
+            database,
+            'GetListSupportAccountsResponse',
+            (GetListSupportAccountsResponse item) => <String, Object?>{
+                  'listOwnOemSupportAccounts': _listSupportAccountsConverter
+                      .encode(item.listOwnOemSupportAccounts)
+                });
+
+  final sqflite.DatabaseExecutor database;
+
+  final StreamController<String> changeListener;
+
+  final QueryAdapter _queryAdapter;
+
+  final InsertionAdapter<GetListSupportAccountsResponse>
+      _getListSupportAccountsResponseInsertionAdapter;
+
+  @override
+  Future<GetListSupportAccountsResponse?> getSupportAccount() async {
+    return _queryAdapter.query('SELECT * FROM GetListSupportAccountsResponse',
+        mapper: (Map<String, Object?> row) => GetListSupportAccountsResponse(
+            listOwnOemSupportAccounts: _listSupportAccountsConverter
+                .decode(row['listOwnOemSupportAccounts'] as String?)));
+  }
+
+  @override
+  Future<void> deleteAllResponses() async {
+    await _queryAdapter
+        .queryNoReturn('DELETE FROM GetListSupportAccountsResponse');
+  }
+
+  @override
+  Future<void> insertResponse(GetListSupportAccountsResponse response) async {
+    await _getListSupportAccountsResponseInsertionAdapter.insert(
+        response, OnConflictStrategy.replace);
+  }
+}
+
+class _$PartModelDao extends PartModelDao {
+  _$PartModelDao(
+    this.database,
+    this.changeListener,
+  )   : _queryAdapter = QueryAdapter(database),
+        _listOwnOemInventoryPartModelInsertionAdapter = InsertionAdapter(
+            database,
+            'ListOwnOemInventoryPartModel',
+            (ListOwnOemInventoryPartModel item) => <String, Object?>{
+                  'parts': _singlePartModelConverter.encode(item.parts)
+                });
+
+  final sqflite.DatabaseExecutor database;
+
+  final StreamController<String> changeListener;
+
+  final QueryAdapter _queryAdapter;
+
+  final InsertionAdapter<ListOwnOemInventoryPartModel>
+      _listOwnOemInventoryPartModelInsertionAdapter;
+
+  @override
+  Future<ListOwnOemInventoryPartModel?> getInventoryPartModel() async {
+    return _queryAdapter.query('SELECT * FROM ListOwnOemInventoryPartModel',
+        mapper: (Map<String, Object?> row) => ListOwnOemInventoryPartModel(
+            parts: _singlePartModelConverter.decode(row['parts'] as String?)));
+  }
+
+  @override
+  Future<void> deleteAllInventoryPartModels() async {
+    await _queryAdapter
+        .queryNoReturn('DELETE FROM ListOwnOemInventoryPartModel');
+  }
+
+  @override
+  Future<void> insertInventoryPartModel(
+      ListOwnOemInventoryPartModel inventoryPartModel) async {
+    await _listOwnOemInventoryPartModelInsertionAdapter.insert(
+        inventoryPartModel, OnConflictStrategy.replace);
   }
 }
 
@@ -924,7 +1133,10 @@ final _listOptionsModelConverter = ListOptionsModelConverter();
 final _tableOptionModelConverter = TableOptionModelConverter();
 final _listColumnsModelConverter = ListColumnsModelConverter();
 final _procedureTemplatesConverter = ProcedureTemplatesConverter();
-final _listOpenTicketConverter = ListOpenTicketConverter();
+final _listSupportAccountsConverter = ListSupportAccountsConverter();
 final _listOwnOemSupportAccountsConverter =
     ListOwnOemSupportAccountsConverter();
+final _listPartModelConverter = ListPartModelConverter();
+final _singlePartModelConverter = SinglePartModelConverter();
+final _listOpenTicketConverter = ListOpenTicketConverter();
 final _dynamicValueConverter = DynamicValueConverter();

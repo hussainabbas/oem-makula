@@ -1,10 +1,16 @@
+// ignore_for_file: use_build_context_synchronously, must_be_immutable
+
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+// import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
+// import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:intl/intl.dart';
 import 'package:makula_oem/helper/model/get_inventory_part_list_response.dart';
 import 'package:makula_oem/helper/model/get_list_support_accounts_response.dart';
@@ -30,11 +36,22 @@ import 'package:provider/provider.dart';
 import '../../../../../../helper/model/get_current_user_details_model.dart';
 import '../../../../../../helper/model/get_procedure_by_id_response.dart';
 import '../../../../../../helper/model/safe_sign_s3_response.dart';
+import '../../../../../../pubnub/message_provider.dart';
+import '../../../../../../pubnub/pubnub_instance.dart';
 
 class ProcedureScreen extends StatefulWidget {
   final String? templatesId;
+  final String? ticketName;
+  // PubnubInstance? pubnubInstance;
+  // MessageProvider? messageProvider;
 
-  const ProcedureScreen({super.key, required this.templatesId, l});
+  ProcedureScreen(
+      {super.key,
+      required this.templatesId,
+      required this.ticketName,
+      // required this.pubnubInstance,
+      // required this.messageProvider
+      });
 
   @override
   State<ProcedureScreen> createState() => _ProcedureScreenState();
@@ -47,12 +64,19 @@ class _ProcedureScreenState extends State<ProcedureScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<ProcedureProvider>(context, listen: false).resetDirtyState();
+
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarIconBrightness: Brightness.dark,
     ));
 
     getValueFromSP() async {
       userValue = (await appDatabase?.userDao.getCurrentUserDetailsFromDb())!;
+      // widget.pubnubInstance = PubnubInstance(context);
+      // widget.pubnubInstance
+      //     ?.setSubscriptionChannel(userValue?.notificationChannel ?? "");
+      // widget.messageProvider = MessageProvider(
+      //     widget.pubnubInstance!, userValue?.notificationChannel ?? "");
     }
 
     // Extract the procedure from the templates
@@ -63,6 +87,7 @@ class _ProcedureScreenState extends State<ProcedureScreen> {
 
     observerGetProcedureByIdResponse(GetProcedureByIdResponse response) async {
       templates = response.getOwnOemProcedureById;
+      procedures = templates?.children ?? [];
       console(
           "_observerGetProcedureByIdResponse => ${response.getOwnOemProcedureById?.state}");
       console(
@@ -70,11 +95,46 @@ class _ProcedureScreenState extends State<ProcedureScreen> {
       Provider.of<ProcedureProvider>(context, listen: false)
           .setMyProcedureRequest(templates);
       //templates = response.getOwnOemProcedureById;
-      procedures = templates?.children ?? [];
 
-      await appDatabase?.getProcedureByIdResponseDao
-          .insertListOwnOemProcedureTemplatesById(
-              response.getOwnOemProcedureById!);
+      var savedTemplates = await appDatabase?.getProcedureByIdResponseDao
+          .getProcedureById(widget.templatesId ?? "");
+
+      if (savedTemplates == null) {
+        console("_observerGetProcedureByIdResponse => savedTemplates == null");
+        templates = response.getOwnOemProcedureById;
+        procedures = templates?.children ?? [];
+        await appDatabase?.getProcedureByIdResponseDao
+            .insertListOwnOemProcedureTemplatesById(
+                response.getOwnOemProcedureById!);
+      } else {
+        console("_observerGetProcedureByIdResponse => savedTemplates == else");
+        var childrenModel = savedTemplates.children;
+        var signatureModel = savedTemplates.signatures;
+        List<SignatureRequestModel> signatureList = [];
+
+        templates = savedTemplates;
+        procedures = templates?.children ?? [];
+
+        signatureModel?.forEach((element) {
+          var model = SignatureRequestModel(
+            id: element.sId,
+            name: element.name,
+            date: element.date,
+            signature: element.signatureUrl,
+          );
+          signatureList.add(model);
+        });
+        var result = await ProcedureViewModel().saveAsDraftOemProcedure(
+            widget.templatesId ?? "", childrenModel, signatureList);
+        result.join(
+            (failed) => {console("failed => ${failed.exception}")},
+            (loaded) => {
+                  console("loaded => ${loaded.data}"),
+                },
+            (loading) => {
+                  console("loading => "),
+                });
+      }
     }
 
     getProcedureById(String procedureId) async {
@@ -114,154 +174,363 @@ class _ProcedureScreenState extends State<ProcedureScreen> {
             if (projectSnap.hasError) {
               return const Center(child: Text(unexpectedError));
             } else {
-              return Scaffold(
-                backgroundColor: Colors.white,
-                appBar: AppBar(
-                  centerTitle: true,
-                  leading: GestureDetector(
-                      onTap: () {
-                        Provider.of<ProcedureProvider>(context, listen: false)
-                            .clearFieldValues();
-                        Provider.of<ProcedureProvider>(context, listen: false)
-                            .removeAllPartModels();
-                        Provider.of<ProcedureProvider>(context, listen: false)
-                            .clearImageFieldValue();
-                        Provider.of<ProcedureProvider>(context, listen: false)
-                            .clearTableDataRequestModel();
-                        Provider.of<ProcedureProvider>(context, listen: false)
-                            .clearSignature();
+              return WillPopScope(
+                onWillPop: () async {
+                  if (Provider.of<ProcedureProvider>(context, listen: false).isDirty && templates?.state != "FINALIZED") {
+                    showDialog(
+                        context: context,
+                        builder: (context) {
+                          return AlertDialog(
+                            title:
+                                const Text('Are you sure you want to leave?'),
+                            content: const Text(
+                                'By continuing without saving, you will lose all your work and updates. Are you sure you want to leave?'),
+                            actions: <Widget>[
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(context)
+                                      .pop(); // Close the dialog
+                                },
+                                child: const Text('Cancel'),
+                              ),
+                              Container(
+                                decoration: BoxDecoration(
+                                    color: primaryColor,
+                                    borderRadius: BorderRadius.circular(8)),
+                                child: TextButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                    Provider.of<ProcedureProvider>(context,
+                                            listen: false)
+                                        .clearFieldValues();
+                                    Provider.of<ProcedureProvider>(context,
+                                            listen: false)
+                                        .removeAllPartModels();
+                                    Provider.of<ProcedureProvider>(context,
+                                            listen: false)
+                                        .clearImageFieldValue();
+                                    Provider.of<ProcedureProvider>(context,
+                                            listen: false)
+                                        .clearTableDataRequestModel();
+                                    Provider.of<ProcedureProvider>(context,
+                                            listen: false)
+                                        .clearSignature();
 
-                        Provider.of<ProcedureProvider>(context, listen: false)
-                            .clearSupportAccount();
-                        Provider.of<ProcedureProvider>(context, listen: false)
-                            .clearSupportAccountSid();
-                        Navigator.pop(context);
-                      },
-                      child: const Icon(Icons.arrow_back_ios)),
-                  backgroundColor: Colors.grey.shade200,
-                  actions: [
-                    SvgPicture.asset("assets/images/notification.svg"),
-                    const SizedBox(
-                      width: 16,
-                    )
-                  ],
-                  title: TextView(
-                      text: "Packaging machine / ${templates?.name}",
-                      textColor: textColorDark,
-                      textFontWeight: FontWeight.bold,
-                      fontSize: 14),
-                ),
-                body: SafeArea(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: SingleChildScrollView(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    GestureDetector(
-                                        onTap: () {
-                                          launchURL(templates?.pdfUrl ?? "");
+                                    Provider.of<ProcedureProvider>(context,
+                                            listen: false)
+                                        .clearSupportAccount();
+                                    Provider.of<ProcedureProvider>(context,
+                                            listen: false)
+                                        .clearSupportAccountSid();
+                                    Provider.of<ProcedureProvider>(context,
+                                            listen: false)
+                                        .resetDirtyState();
+                                    Navigator.of(context).pop();
+                                  },
+                                  child: const TextView(
+                                      text: "Yes, leave",
+                                      textColor: Colors.white,
+                                      textFontWeight: FontWeight.normal,
+                                      fontSize: 14),
+                                ),
+                              ),
+                            ],
+                          );
+                        });
+                    return false;
+                  }
+                  else {
+                    Provider.of<ProcedureProvider>(context, listen: false)
+                        .clearFieldValues();
+                    Provider.of<ProcedureProvider>(context, listen: false)
+                        .removeAllPartModels();
+                    Provider.of<ProcedureProvider>(context, listen: false)
+                        .clearImageFieldValue();
+                    Provider.of<ProcedureProvider>(context, listen: false)
+                        .clearTableDataRequestModel();
+                    Provider.of<ProcedureProvider>(context, listen: false)
+                        .clearSignature();
+
+                    Provider.of<ProcedureProvider>(context, listen: false)
+                        .clearSupportAccount();
+                    Provider.of<ProcedureProvider>(context, listen: false)
+                        .clearSupportAccountSid();
+                    Provider.of<ProcedureProvider>(context, listen: false)
+                        .resetDirtyState();
+                    Navigator.pop(context);
+                    return true;
+                  }
+                },
+                child: Scaffold(
+                  backgroundColor: Colors.white,
+                  appBar: AppBar(
+                    centerTitle: false,
+                    leading: GestureDetector(
+                        onTap: () {
+                          if (Provider.of<ProcedureProvider>(context,
+                                      listen: false)
+                                  .isDirty &&
+                              templates?.state != "FINALIZED") {
+                            showDialog(
+                                context: context,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title: const Text(
+                                        'Are you sure you want to leave?'),
+                                    content: const Text(
+                                        'By continuing without saving, you will lose all your work and updates. Are you sure you want to leave?'),
+                                    actions: <Widget>[
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.of(context)
+                                              .pop(); // Close the dialog
                                         },
-                                        child: SvgPicture.asset(
-                                            "assets/images/ghost_button.svg")),
-                                    Container(
+                                        child: const Text('Cancel'),
+                                      ),
+                                      Container(
                                         decoration: BoxDecoration(
-                                            color:
-                                                templates?.state != "FINALIZED"
-                                                    ? lightGray
-                                                    : closedContainerColor,
+                                            color: primaryColor,
                                             borderRadius:
                                                 BorderRadius.circular(8)),
-                                        alignment: Alignment.center,
-                                        padding: const EdgeInsets.fromLTRB(
-                                            8, 4, 4, 5),
-                                        child: TextView(
-                                            align: TextAlign.center,
-                                            text: templates?.state
-                                                    ?.replaceAll("_", " ") ??
-                                                "",
-                                            textColor:
-                                                templates?.state != "FINALIZED"
-                                                    ? textColorLight
-                                                    : closedStatusColor,
-                                            textFontWeight: FontWeight.normal,
-                                            fontSize: 12)),
-                                  ],
-                                ),
-                                const SizedBox(
-                                  height: 16,
-                                ),
-                                TextView(
-                                    text: templates?.name ?? "",
-                                    textColor: textColorDark,
-                                    textFontWeight: FontWeight.bold,
-                                    fontSize: 18),
-                                const SizedBox(
-                                  height: 16,
-                                ),
-                                TextView(
-                                    text: templates?.description ?? "",
-                                    textColor: textColorDark,
-                                    textFontWeight: FontWeight.normal,
-                                    fontSize: 12),
-                                for (var entry in procedures.asMap().entries)
-                                  //for (var procedure in procedures)
-                                  FieldWidget(
-                                    fieldData: entry.value,
-                                    isBorderShowing: true,
-                                    index: entry.key,
-                                    parentIndex: -1,
-                                    isAChildren: false,
-                                    userValue: userValue,
-                                    procedureId: widget.templatesId ?? "",
-                                    listSupportAccountsResponse:
-                                        listSupportAccountsResponse,
-                                    isEditable: templates?.state != "FINALIZED",
-                                    //&& (Provider.of<ProcedureProvider>(context, listen: false).signatureModel?.isNotEmpty ?? false) && (Provider.of<ProcedureProvider>(context, listen: false).signatureModel![0].signature == null),
-                                    inventoryPartListResponse:
-                                        inventoryPartListResponse,
-                                  ),
-                                const SizedBox(height: 16),
-                                //SIGNATURE
+                                        child: TextButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                            Provider.of<ProcedureProvider>(
+                                                    context,
+                                                    listen: false)
+                                                .clearFieldValues();
+                                            Provider.of<ProcedureProvider>(
+                                                    context,
+                                                    listen: false)
+                                                .removeAllPartModels();
+                                            Provider.of<ProcedureProvider>(
+                                                    context,
+                                                    listen: false)
+                                                .clearImageFieldValue();
+                                            Provider.of<ProcedureProvider>(
+                                                    context,
+                                                    listen: false)
+                                                .clearTableDataRequestModel();
+                                            Provider.of<ProcedureProvider>(
+                                                    context,
+                                                    listen: false)
+                                                .clearSignature();
 
-                                if (templates?.signatures?.isNotEmpty == true)
-                                  // SignatureWidget(
-                                  //   signatureModel: templates?.signatures,
-                                  //   isEditable: templates?.state != "FINALIZED",
-                                  //   currentUser: userValue,
-                                  //   procedureId: widget.templatesId ?? "",
-                                  // ),
-                                  ChangeNotifierProvider.value(
-                                  value: Provider.of<ProcedureProvider>(
-                                      context,
-                                      listen: true),
-                                  child: SignatureWidget(
-                                    signatureModel: templates?.signatures,
-                                    isEditable:
-                                        templates?.state != "FINALIZED",
-                                        currentUser: userValue,
-                                        procedureId: widget.templatesId ?? "",
+                                            Provider.of<ProcedureProvider>(
+                                                    context,
+                                                    listen: false)
+                                                .clearSupportAccount();
+                                            Provider.of<ProcedureProvider>(
+                                                    context,
+                                                    listen: false)
+                                                .clearSupportAccountSid();
+                                            Provider.of<ProcedureProvider>(
+                                                    context,
+                                                    listen: false)
+                                                .resetDirtyState();
+                                            Navigator.of(context).pop();
+                                          },
+                                          child: const TextView(
+                                              text: "Yes, leave",
+                                              textColor: Colors.white,
+                                              textFontWeight: FontWeight.normal,
+                                              fontSize: 14),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                });
+                          } else {
+                            Provider.of<ProcedureProvider>(context,
+                                    listen: false)
+                                .clearFieldValues();
+                            Provider.of<ProcedureProvider>(context,
+                                    listen: false)
+                                .removeAllPartModels();
+                            Provider.of<ProcedureProvider>(context,
+                                    listen: false)
+                                .clearImageFieldValue();
+                            Provider.of<ProcedureProvider>(context,
+                                    listen: false)
+                                .clearTableDataRequestModel();
+                            Provider.of<ProcedureProvider>(context,
+                                    listen: false)
+                                .clearSignature();
+
+                            Provider.of<ProcedureProvider>(context,
+                                    listen: false)
+                                .clearSupportAccount();
+                            Provider.of<ProcedureProvider>(context,
+                                    listen: false)
+                                .clearSupportAccountSid();
+                            Provider.of<ProcedureProvider>(context,
+                                    listen: false)
+                                .resetDirtyState();
+                            Navigator.pop(context);
+                          }
+                        },
+                        child: const Icon(Icons.arrow_back_ios)),
+                    backgroundColor: Colors.grey.shade200,
+                    title: TextView(
+                        text: "${widget.ticketName} / ${templates?.name}",
+                        textColor: textColorDark,
+                        textFontWeight: FontWeight.bold,
+                        fontSize: 14),
+                  ),
+                  body: SafeArea(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      GestureDetector(
+                                          onTap: () async {
+                                            console(
+                                                "templates?.pdfUrl => ${templates?.pdfUrl}");
+                                            if (templates?.state ==
+                                                "FINALIZED") {
+                                              launchURL(
+                                                  templates?.pdfUrl ?? "");
+                                            } else {
+                                              context.showCustomDialog();
+                                              var result =
+                                                  await ProcedureViewModel()
+                                                      .downloadProcedurePDF(
+                                                          widget.templatesId ??
+                                                              "",
+                                                          generateRandomString());
+                                              if (context.mounted) {
+                                                Navigator.pop(context);
+                                              }
+                                              result.join(
+                                                  (failed) => {
+                                                        console(
+                                                            "failed => ${failed.exception}")
+                                                      },
+                                                  (loaded) => {},
+                                                  (loading) => {
+                                                        console("loading => "),
+                                                      });
+                                            }
+                                          },
+                                          child: SvgPicture.asset(
+                                              "assets/images/ghost_button.svg")),
+                                      Container(
+                                          decoration: BoxDecoration(
+                                              color: templates?.state !=
+                                                      "FINALIZED"
+                                                  ? lightGray
+                                                  : closedContainerColor,
+                                              borderRadius:
+                                                  BorderRadius.circular(8)),
+                                          alignment: Alignment.center,
+                                          padding: const EdgeInsets.fromLTRB(
+                                              8, 4, 4, 5),
+                                          child: TextView(
+                                              align: TextAlign.center,
+                                              text: templates?.state
+                                                      ?.replaceAll("_", " ") ??
+                                                  "",
+                                              textColor: templates?.state !=
+                                                      "FINALIZED"
+                                                  ? textColorLight
+                                                  : closedStatusColor,
+                                              textFontWeight: FontWeight.normal,
+                                              fontSize: 12)),
+                                    ],
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(
+                                    height: 16,
+                                  ),
+                                  TextView(
+                                      text: templates?.name ?? "",
+                                      textColor: textColorDark,
+                                      textFontWeight: FontWeight.bold,
+                                      fontSize: 18),
+                                  const SizedBox(
+                                    height: 16,
+                                  ),
+                                  TextView(
+                                      text: templates?.description ?? "",
+                                      textColor: textColorDark,
+                                      textFontWeight: FontWeight.normal,
+                                      fontSize: 12),
+                                  for (var entry in procedures.asMap().entries)
+                                    //for (var procedure in procedures)
+                                    FieldWidget(
+                                      fieldData: entry.value,
+                                      isBorderShowing: true,
+                                      index: entry.key,
+                                      parentIndex: -1,
+                                      isAChildren: false,
+                                      userValue: userValue,
+                                      procedureId: widget.templatesId ?? "",
+                                      listSupportAccountsResponse:
+                                          listSupportAccountsResponse,
+                                      isEditable: templates?.state !=
+                                              "FINALIZED" &&
+                                          ((Provider.of<ProcedureProvider>(
+                                                          context,
+                                                          listen: false)
+                                                      .signatureModel
+                                                      ?.isEmpty ??
+                                                  false) ||
+                                              (Provider.of<ProcedureProvider>(
+                                                          context,
+                                                          listen: false)
+                                                      .signatureModel?[0]
+                                                      ?.signature ==
+                                                  null)),
+                                      inventoryPartListResponse:
+                                          inventoryPartListResponse,
+                                    ),
+                                  const SizedBox(height: 16),
+                                  //SIGNATURE
+
+                                  if (templates?.signatures?.isNotEmpty == true)
+                                    SignatureWidget(
+                                      signatureModel: templates?.signatures,
+                                      isEditable:
+                                          templates?.state != "FINALIZED",
+                                      currentUser: userValue,
+                                      context: context,
+                                      procedureId: widget.templatesId ?? "",
+                                    ),
+                                  // ChangeNotifierProvider.value(
+                                  // value: Provider.of<ProcedureProvider>(
+                                  //     context,
+                                  //     listen: true),
+                                  // child: SignatureWidget(
+                                  //   signatureModel: templates?.signatures,
+                                  //   isEditable:
+                                  //       templates?.state != "FINALIZED",
+                                  //       currentUser: userValue,
+                                  //       procedureId: widget.templatesId ?? "",
+                                  // ),
+                                  //),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                        if (templates?.state != "FINALIZED")
-                          ActionButtons(
-                            refreshCallback: () {
-                              refreshScreen();
-                            },
-                          ),
-                      ],
+                          if (templates?.state != "FINALIZED")
+                            ActionButtons(
+                              templatesId: widget.templatesId ?? "",
+                              refreshCallback: () {
+                                refreshScreen(
+                                    context, widget.templatesId ?? "");
+                              },
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -315,8 +584,34 @@ class _ProcedureScreenState extends State<ProcedureScreen> {
     listSupportAccountsResponse = response;
   }
 
-  void refreshScreen() {
-    Future.delayed(const Duration(seconds: 1), () {
+  void refreshScreen(BuildContext context, String templateId) {
+    Future.delayed(const Duration(seconds: 1), () async {
+      var templates = await appDatabase?.getProcedureByIdResponseDao
+          .getProcedureById(templateId);
+
+      var childrenModel = Provider.of<ProcedureProvider>(context, listen: false)
+          .myProcedureRequest
+          ?.children;
+      var signatureRequestModel =
+          Provider.of<ProcedureProvider>(context, listen: false).signatureModel;
+
+      List<SignatureModel> signatureList = [];
+
+      signatureRequestModel?.forEach((element) {
+        var model = SignatureModel(
+          sId: element.id,
+          name: element.name,
+          date: element.date,
+          signatureUrl: element.signature,
+        );
+        signatureList.add(model);
+      });
+
+      templates?.children = childrenModel;
+      templates?.signatures = signatureList;
+
+      await appDatabase?.getProcedureByIdResponseDao
+          .updateListOwnOemProcedureTemplates(templates!);
       setState(() {
         // Your logic for refreshing the screen goes here
       });
@@ -329,13 +624,38 @@ class SignatureWidget extends StatelessWidget {
   final bool isEditable;
   final CurrentUser? currentUser;
   final String procedureId;
+  final BuildContext context;
 
-  const SignatureWidget(
+  SignatureWidget(
       {super.key,
       required this.signatureModel,
       required this.isEditable,
+      required this.context,
       required this.currentUser,
-      required this.procedureId});
+      required this.procedureId}) {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      Provider.of<ProcedureProvider>(context, listen: false).clearSignature();
+      signatureModel?.forEach((element) {
+        var model = SignatureRequestModel(
+            name: element.name,
+            date: element.date,
+            id: element.sId.toString(),
+            signature: element.signatureUrl);
+
+        if (Provider.of<ProcedureProvider>(context, listen: false)
+                .signatureModel
+                ?.contains(model) ==
+            false) {
+          Provider.of<ProcedureProvider>(context, listen: false)
+              .signatureModel
+              ?.add(model);
+        }
+
+        console(
+            "SignatureWidget => ${Provider.of<ProcedureProvider>(context, listen: false).signatureModel?.length}");
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -343,242 +663,235 @@ class SignatureWidget extends StatelessWidget {
         Provider.of<ProcedureProvider>(context, listen: false);
 
     DateTime? selectedDate;
-    signatureModel?.forEach((element) {
-      var model = SignatureRequestModel(
-          name: element.name,
-          date: element.date,
-          id: element.sId.toString(),
-          signature: element.signatureUrl);
-
-      if (Provider.of<ProcedureProvider>(context, listen: false)
-              .signatureModel
-              ?.contains(model) ==
-          false) {
-        Provider.of<ProcedureProvider>(context, listen: false)
-            .signatureModel
-            ?.add(model);
-      }
-
-      console(
-          "SignatureWidget => ${Provider.of<ProcedureProvider>(context, listen: false).signatureModel?.length}");
-    });
-    return Container(
-        width: context.fullWidth(),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-            color: lightGray, borderRadius: BorderRadius.circular(8)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextView(
-                text: "Signature",
-                textColor: textColorDark,
-                textFontWeight: FontWeight.w500,
-                fontSize: 14),
-            const SizedBox(
-              height: 16,
-            ),
-            ListView.separated(
-              shrinkWrap: true,
-              itemCount: signatureModel?.length ?? 0,
-              physics: const NeverScrollableScrollPhysics(),
-              itemBuilder: (context, index) {
-                bool? idExists =
+    return ChangeNotifierProvider.value(
+      value: Provider.of<ProcedureProvider>(context, listen: true),
+      child: Container(
+          width: context.fullWidth(),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+              color: lightGray, borderRadius: BorderRadius.circular(8)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextView(
+                  text: "Signature",
+                  textColor: textColorDark,
+                  textFontWeight: FontWeight.w500,
+                  fontSize: 14),
+              const SizedBox(
+                height: 16,
+              ),
+              ListView.separated(
+                shrinkWrap: true,
+                itemCount: signatureModel?.length ?? 0,
+                physics: const NeverScrollableScrollPhysics(),
+                itemBuilder: (context, index) {
+                  bool? idExists =
+                      Provider.of<ProcedureProvider>(context, listen: false)
+                          .signatureModel
+                          ?.any((signature) =>
+                              signature.id == signatureModel?[index].sId);
+                  if (idExists == false) {
                     Provider.of<ProcedureProvider>(context, listen: false)
                         .signatureModel
-                        ?.any((signature) =>
-                            signature.id == signatureModel?[index].sId);
-                if (idExists == false) {
-                  Provider.of<ProcedureProvider>(context, listen: false)
-                      .signatureModel
-                      ?.add(SignatureRequestModel(
-                          id: signatureModel?[index].sId));
-                }
+                        ?.add(SignatureRequestModel(
+                            id: signatureModel?[index].sId));
+                  }
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextView(
-                        text: "Date Signed",
-                        textColor: textColorDark,
-                        textFontWeight: FontWeight.normal,
-                        fontSize: 12),
-                    const SizedBox(
-                      height: 8,
-                    ),
-                    GestureDetector(
-                      onTap: () async {
-                        if (formStateProvider.isValid && isEditable) {
-                          DateTime? pickedDate = await showDatePicker(
-                            context: context,
-                            initialDate: selectedDate ?? DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime.now(),
-                          );
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextView(
+                          text: "Date Signed",
+                          textColor: textColorDark,
+                          textFontWeight: FontWeight.normal,
+                          fontSize: 12),
+                      const SizedBox(
+                        height: 8,
+                      ),
+                      GestureDetector(
+                        onTap: () async {
+                          if (formStateProvider.isValid && isEditable) {
+                            DateTime? pickedDate = await showDatePicker(
+                              context: context,
+                              initialDate: selectedDate ?? DateTime.now(),
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime.now(),
+                            );
 
-                          if (pickedDate != null &&
-                              pickedDate != selectedDate) {
-                            // setState(() {
-                            //   _selectedDate = pickedDate;
-                            // });
-                            if (context.mounted) {
-                              console(
-                                  "DATE -> ${"${DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSS'Z").format(pickedDate)}Z"}");
-                              Provider.of<ProcedureProvider>(context,
-                                          listen: false)
-                                      .signatureModel?[index]
-                                      .date =
-                                  DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSS'Z")
-                                          .format(pickedDate) +
-                                      "Z";
-                              // Save the value to the state
-                              // final formStateProvider =
-                              // Provider.of<ProcedureProvider>(context, listen: false);
-                              // formStateProvider.setFieldValue(name, DateFormat('dd/MM/yyyy').format(pickedDate));
+                            if (pickedDate != null &&
+                                pickedDate != selectedDate) {
+                              if (context.mounted) {
+                                var selectedSignatureModel =
+                                    Provider.of<ProcedureProvider>(context,
+                                            listen: false)
+                                        .signatureModel?[index];
+                                var model = SignatureRequestModel(
+                                    name: selectedSignatureModel?.name,
+                                    date:
+                                        "${DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSS'Z").format(pickedDate)}Z",
+                                    id: signatureModel?[index].sId.toString(),
+                                    signature:
+                                        selectedSignatureModel?.signature);
+
+                                Provider.of<ProcedureProvider>(context,
+                                        listen: false)
+                                    .updateSignature(model, index);
+
+                                console(
+                                    "SignatureRequestModel => ${Provider.of<ProcedureProvider>(context, listen: false).signatureModel?[index].date}");
+                                // Save the value to the state
+                                // final formStateProvider =
+                                // Provider.of<ProcedureProvider>(context, listen: false);
+                                // formStateProvider.setFieldValue(name, DateFormat('dd/MM/yyyy').format(pickedDate));
+                              }
                             }
                           }
-                        }
-                      },
-                      child: Container(
+                        },
+                        child: Container(
+                            padding: const EdgeInsets.all(16),
+                            width: context.fullWidth(),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                TextView(
+                                    text: Provider.of<ProcedureProvider>(
+                                                context,
+                                                listen: true)
+                                            .signatureModel?[index]
+                                            .date
+                                            ?.convertStringDDMMYYYHHMMSSDateToEMMMDDYYYY() ??
+                                        "Select Date",
+                                    textColor: textColorLight,
+                                    textFontWeight: FontWeight.normal,
+                                    fontSize: 12),
+                                Icon(
+                                  Icons.calendar_month,
+                                  color: textColorLight,
+                                )
+                              ],
+                            )),
+                      ),
+                      const SizedBox(
+                        height: 16,
+                      ),
+                      TextView(
+                          text: "OEM agent name",
+                          textColor: textColorDark,
+                          textFontWeight: FontWeight.normal,
+                          fontSize: 12),
+                      const SizedBox(
+                        height: 8,
+                      ),
+                      Container(
+                        padding: const EdgeInsets.only(left: 16, right: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: TextFormField(
+                          style: TextStyle(color: textColorDark, fontSize: 12),
+                          enabled: formStateProvider.isValid && isEditable,
+                          // Use the field name as the key
+                          initialValue: Provider.of<ProcedureProvider>(context,
+                                  listen: false)
+                              .signatureModel?[index]
+                              .name,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            hintText: "Enter Name",
+                          ),
+                          keyboardType: TextInputType.text,
+                          validator: (value) {
+                            return null;
+                          },
+                          onChanged: (value) {
+                            // final formStateProvider =
+                            //     Provider.of<ProcedureProvider>(context,
+                            //         listen: false);
+                            // formStateProvider.setFieldValue(
+                            //     "Signature", value);
+
+                            Provider.of<ProcedureProvider>(context,
+                                    listen: false)
+                                .signatureModel?[index]
+                                .name = value;
+                          },
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 16,
+                      ),
+                      TextView(
+                          text: "Signature",
+                          textColor: textColorDark,
+                          textFontWeight: FontWeight.normal,
+                          fontSize: 12),
+                      const SizedBox(
+                        height: 8,
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          if (formStateProvider.isValid && isEditable) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      SignatureProcedureScreen(
+                                        index: index,
+                                        currentUser: currentUser,
+                                        procedureId: procedureId,
+                                      )),
+                            );
+                          }
+                        },
+                        child: Container(
                           padding: const EdgeInsets.all(16),
+                          height: 200,
                           width: context.fullWidth(),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              TextView(
-                                  text: Provider.of<ProcedureProvider>(context,
-                                              listen: false)
-                                          .signatureModel?[index]
-                                          .date
-                                          ?.convertStringDDMMYYYHHMMSSDateToEMMMDDYYYY() ??
-                                      "Select Date",
+                          child: Provider.of<ProcedureProvider>(context,
+                                          listen: false)
+                                      .signatureModel?[index]
+                                      .signature ==
+                                  null
+                              ? TextView(
+                                  text: "Sign here",
                                   textColor: textColorLight,
                                   textFontWeight: FontWeight.normal,
-                                  fontSize: 12),
-                              Icon(
-                                Icons.calendar_month,
-                                color: textColorLight,
-                              )
-                            ],
-                          )),
-                    ),
-                    const SizedBox(
-                      height: 16,
-                    ),
-                    TextView(
-                        text: "OEM agent name",
-                        textColor: textColorDark,
-                        textFontWeight: FontWeight.normal,
-                        fontSize: 12),
-                    const SizedBox(
-                      height: 8,
-                    ),
-                    Container(
-                      padding: const EdgeInsets.only(left: 16, right: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: TextFormField(
-                        style: TextStyle(color: textColorDark, fontSize: 12),
-                        enabled: formStateProvider.isValid && isEditable,
-                        // Use the field name as the key
-                        initialValue: Provider.of<ProcedureProvider>(context,
-                                listen: false)
-                            .signatureModel?[index]
-                            .name,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText: "Enter Name",
-                        ),
-                        keyboardType: TextInputType.text,
-                        validator: (value) {
-                          return null;
-                        },
-                        onChanged: (value) {
-                          // final formStateProvider =
-                          //     Provider.of<ProcedureProvider>(context,
-                          //         listen: false);
-                          // formStateProvider.setFieldValue(
-                          //     "Signature", value);
-
-                          Provider.of<ProcedureProvider>(context, listen: false)
-                              .signatureModel?[index]
-                              .name = value;
-                        },
-                      ),
-                    ),
-                    const SizedBox(
-                      height: 16,
-                    ),
-                    TextView(
-                        text: "Signature",
-                        textColor: textColorDark,
-                        textFontWeight: FontWeight.normal,
-                        fontSize: 12),
-                    const SizedBox(
-                      height: 8,
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        if (formStateProvider.isValid && isEditable) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                                builder: (context) => SignatureProcedureScreen(
-                                      index: index,
-                                      currentUser: currentUser,
-                                      procedureId: procedureId,
-                                    )),
-                          );
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        height: 200,
-                        width: context.fullWidth(),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Provider.of<ProcedureProvider>(context,
-                                        listen: false)
-                                    .signatureModel?[index]
-                                    .signature ==
-                                null
-                            ? TextView(
-                                text: "Sign here",
-                                textColor: textColorLight,
-                                textFontWeight: FontWeight.normal,
-                                fontSize: 12)
-                            : CachedNetworkImage(
-                                placeholder: (context, url) => const Padding(
-                                  padding: EdgeInsets.zero,
-                                  child: CircularProgressIndicator.adaptive(),
+                                  fontSize: 12)
+                              : CachedNetworkImage(
+                                  placeholder: (context, url) => const Padding(
+                                    padding: EdgeInsets.zero,
+                                    child: CircularProgressIndicator.adaptive(),
+                                  ),
+                                  imageUrl: Provider.of<ProcedureProvider>(
+                                              context,
+                                              listen: false)
+                                          .signatureModel?[index]
+                                          .signature ??
+                                      "",
                                 ),
-                                imageUrl: Provider.of<ProcedureProvider>(
-                                            context,
-                                            listen: false)
-                                        .signatureModel?[index]
-                                        .signature ??
-                                    "",
-                              ),
+                        ),
                       ),
-                    ),
-                  ],
-                );
-              },
-              separatorBuilder: (context, index) {
-                return const Divider(
-                  height: 30,
-                );
-              },
-            ),
-          ],
-        ));
+                    ],
+                  );
+                },
+                separatorBuilder: (context, index) {
+                  return const Divider(
+                    height: 30,
+                  );
+                },
+              ),
+            ],
+          )),
+    );
   }
 }
 
@@ -634,8 +947,10 @@ class SignatureWidget extends StatelessWidget {
 
 class ActionButtons extends StatefulWidget {
   final VoidCallback refreshCallback;
+  final String templatesId;
 
-  const ActionButtons({super.key, required this.refreshCallback});
+  const ActionButtons(
+      {super.key, required this.refreshCallback, required this.templatesId});
 
   @override
   State<ActionButtons> createState() => _ActionButtonsState();
@@ -646,6 +961,33 @@ class _ActionButtonsState extends State<ActionButtons> {
   Widget build(BuildContext context) {
     final formStateProvider =
         Provider.of<ProcedureProvider>(context, listen: false);
+    var isValid = false;
+    if (formStateProvider.isValid) {
+      isValid = true;
+    }
+
+    if (Provider.of<ProcedureProvider>(context, listen: false)
+        .fieldValues
+        .isEmpty) {
+      isValid = true;
+    }
+
+    if (Provider.of<ProcedureProvider>(context, listen: false)
+            .signatureModel
+            ?.isNotEmpty ==
+        true) {
+      if (Provider.of<ProcedureProvider>(context, listen: false)
+              .signatureModel?[0]
+              .signature !=
+          null) {
+        isValid = true;
+      } else {
+        isValid = false;
+      }
+    } else {
+      isValid = true;
+    }
+
     return ChangeNotifierProvider.value(
       value: Provider.of<ProcedureProvider>(context, listen: true),
       child: Container(
@@ -656,9 +998,12 @@ class _ActionButtonsState extends State<ActionButtons> {
             Expanded(
                 child: CustomElevatedButton(
                     backgroundColor: visitContainerColor,
-                    textColor: primaryColor,
+                    textColor:
+                        formStateProvider.isDirty ? primaryColor : Colors.white,
                     borderRadius: 8,
+                    isValid: formStateProvider.isDirty,
                     title: "Save as Draft",
+                    fontSize: 14,
                     onPressed: () async {
                       var isConnected = await isConnectedToNetwork();
                       if (isConnected && context.mounted) {
@@ -693,6 +1038,9 @@ class _ActionButtonsState extends State<ActionButtons> {
                             (loading) => {
                                   console("loading => "),
                                 });
+                      } else {
+                        widget.refreshCallback();
+                        //templates?.signatures = signatureRequestModel;
                       }
                     })),
             const SizedBox(
@@ -700,19 +1048,10 @@ class _ActionButtonsState extends State<ActionButtons> {
             ),
             Expanded(
                 child: CustomElevatedButton(
-                    backgroundColor: (formStateProvider.isValid ||
-                            Provider.of<ProcedureProvider>(context,
-                                    listen: false)
-                                .fieldValues
-                                .isEmpty)
-                        ? primaryColor
-                        : Colors.grey,
                     textColor: Colors.white,
                     borderRadius: 8,
-                    isValid: formStateProvider.isValid ||
-                        Provider.of<ProcedureProvider>(context, listen: false)
-                            .fieldValues
-                            .isEmpty,
+                    fontSize: 14,
+                    isValid: isValid,
                     title: "Finalize",
                     onPressed: () async {
                       var isConnected = await isConnectedToNetwork();
@@ -741,7 +1080,7 @@ class _ActionButtonsState extends State<ActionButtons> {
                                 {console("failed => ${failed.exception}")},
                             (loaded) => {
                                   console("loaded => ${loaded.data}"),
-                                  widget.refreshCallback(),
+                                  Navigator.pop(context),
                                   finalize(
                                       formStateProvider.fieldValues, context)
                                 },
@@ -810,7 +1149,7 @@ class FieldWidget extends StatelessWidget {
           isAChildren: isAChildren,
         );
       case 'TEXT_AREA_FIELD':
-        return TextFieldWidget(
+        return NumberTextField(
             name: name,
             fieldData: fieldData,
             isRequired: isRequired,
@@ -824,7 +1163,7 @@ class FieldWidget extends StatelessWidget {
             isAChildren: isAChildren,
             context: context);
       case 'NUMBER_FIELD':
-        return TextFieldWidget(
+        return NumberTextField(
             name: name,
             fieldData: fieldData,
             isRequired: isRequired,
@@ -975,13 +1314,6 @@ class _TableFieldWidgetState extends State<TableFieldWidget> {
   List<List<TextEditingController>> rows = [];
   late BuildContext _context;
 
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   // Initialize with one empty row
-  //   addRow();
-  // }
-
   @override
   void initState() {
     super.initState();
@@ -994,10 +1326,12 @@ class _TableFieldWidgetState extends State<TableFieldWidget> {
 
     if (widget.fieldData.value != null) {
       var dataList = widget.fieldData.value;
+      Provider.of<ProcedureProvider>(_context, listen: false)
+          .clearTableDataRequestModel();
       for (var dataMap in dataList) {
         dataMap.forEach((key, value) {
           Provider.of<ProcedureProvider>(_context, listen: false)
-              .setTableDataRequestModel(ColumnsModel(sId: key, value: value));
+              .setTableDataRequestModel(ColumnsModel(sId: key, value: value, heading: ""));
         });
         List<TextEditingController> newRow = List.generate(
           widget.fieldData.tableOption?.columns?.length ?? 0,
@@ -1086,6 +1420,11 @@ class _TableFieldWidgetState extends State<TableFieldWidget> {
                         itemBuilder: (context, childIndex) {
                           var columnItem = widget
                               .fieldData.tableOption?.columns?[childIndex];
+                          var tableRequestModel =
+                              Provider.of<ProcedureProvider>(_context,
+                                      listen: false)
+                                  .tableDataRequest;
+
                           return Container(
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                             child: Row(
@@ -1105,12 +1444,7 @@ class _TableFieldWidgetState extends State<TableFieldWidget> {
                                   child: TextFormField(
                                     enabled: widget.isEditable,
                                     //controller: rows[mainIndex][childIndex],
-                                    initialValue:
-                                        Provider.of<ProcedureProvider>(_context,
-                                                listen: false)
-                                            .tableDataRequest?[childIndex]
-                                            .value
-                                            .toString(),
+                                    initialValue: "",
                                     decoration: const InputDecoration(
                                         hintText: '-',
                                         border: InputBorder.none),
@@ -1184,7 +1518,6 @@ class _TableFieldWidgetState extends State<TableFieldWidget> {
                           return const Divider();
                         },
                       ),
-
                       // buildRow(index),
                     ],
                   );
@@ -1253,7 +1586,7 @@ class _TableFieldWidgetState extends State<TableFieldWidget> {
     );
 
     Provider.of<ProcedureProvider>(_context, listen: false)
-        .setTableDataRequestModel(ColumnsModel());
+        .setTableDataRequestModel(ColumnsModel(sId: "0", value: "", heading: ""));
     // Add the new row to the list
     setState(() {
       rows.add(newRow);
@@ -1307,7 +1640,7 @@ class ImageUploaderWidget extends StatelessWidget {
       required this.isAChildren,
       required this.procedureId,
       required this.isEditable}) {
-    Future.delayed(const Duration(milliseconds: 100), () {
+    Future.delayed(const Duration(milliseconds: 0), () {
       final formStateProvider =
           Provider.of<ProcedureProvider>(context, listen: false);
 
@@ -1317,7 +1650,8 @@ class ImageUploaderWidget extends StatelessWidget {
       formStateProvider.clearImageRequestModel();
       if (fieldData.value != null) {
         formStateProvider.clearImageRequestModel();
-        Provider.of<ProcedureProvider>(context, listen: false).clearImageFieldValue();
+        Provider.of<ProcedureProvider>(context, listen: false)
+            .clearImageFieldValue();
         var value = fieldData.value as List;
         for (var element in value) {
           if (element["url"] != null) {
@@ -1462,7 +1796,7 @@ class ImageUploaderWidget extends StatelessWidget {
                       fontSize: 10),
                   trailing: GestureDetector(
                     onTap: () {
-                      formStateProvider.deleteImageFieldValue(item?.url ?? "");
+                      formStateProvider.deleteImageRequestModel(item!);
                     },
                     child: Icon(
                       Icons.delete,
@@ -1521,9 +1855,12 @@ class PartsFieldWidget extends StatelessWidget {
       if (fieldData.value != null) {
         var value = fieldData.value as List;
         Set<String> stringSet = Set.from(value);
-
+        Provider.of<ProcedureProvider>(context, listen: false).clearPartModel();
+        Provider.of<ProcedureProvider>(context, listen: false)
+            .clearPartModelSId();
         for (var element in value) {
           console("PartsFieldWidget element => $element");
+
           Provider.of<ProcedureProvider>(context, listen: false)
               .addPartModelSId(element);
         }
@@ -1578,6 +1915,7 @@ class PartsFieldWidget extends StatelessWidget {
                   inventoryPartListResponse?.listOwnOemInventoryPart?.parts ??
                       [],
               selectedItem: null,
+              enabled: isEditable,
               itemAsString: (PartsModel? u) =>
                   u == null ? "" : u.name.toString(),
               onChanged: (PartsModel? data) => {
@@ -1585,6 +1923,8 @@ class PartsFieldWidget extends StatelessWidget {
                     .addPartModel(data),
                 Provider.of<ProcedureProvider>(context, listen: false)
                     .addPartModelSId(data?.sId),
+                Provider.of<ProcedureProvider>(context, listen: false)
+                    .setFieldValue(name, data?.sId),
                 if (isAChildren)
                   {
                     Provider.of<ProcedureProvider>(context, listen: false)
@@ -1605,6 +1945,18 @@ class PartsFieldWidget extends StatelessWidget {
                             .selectedPartsSIdList,
                   }
               },
+              popupProps: PopupProps.bottomSheet(
+                isFilterOnline: true,
+                showSearchBox: true,
+                showSelectedItems: false,
+                searchFieldProps: TextFieldProps(
+                  controller: TextEditingController(),
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: 'Search...',
+                  ),
+                ),
+              ),
               dropdownDecoratorProps: DropDownDecoratorProps(
                 dropdownSearchDecoration: InputDecoration(
                   hintText: "Choose Part",
@@ -1641,7 +1993,7 @@ class PartsFieldWidget extends StatelessWidget {
                               ),
                             ),
                         errorWidget: (context, url, error) =>
-                            defaultImageBig(context),
+                            defaultImageBigInventory(context),
                         imageUrl: item?.image ?? ""),
                   ),
                   title: TextView(
@@ -1919,17 +2271,22 @@ class MemberFieldWidget extends StatelessWidget {
                     fontSize: 14),
               ],
             ),
-            DropdownSearch<ListOwnOemSupportAccounts>(
+            DropdownSearch<ListSupportAccounts>(
+              // popupProps: const PopupProps.bottomSheet(),
+              // dropdownSearchDecoration: InputDecoration(labelText: "Name"),
               items:
                   listSupportAccountsResponse?.listOwnOemSupportAccounts ?? [],
               selectedItem: null,
-              itemAsString: (ListOwnOemSupportAccounts? u) =>
+              enabled: isEditable,
+              itemAsString: (ListSupportAccounts? u) =>
                   u == null ? "" : u.name.toString(),
-              onChanged: (ListOwnOemSupportAccounts? data) => {
+              onChanged: (ListSupportAccounts? data) => {
                 Provider.of<ProcedureProvider>(context, listen: false)
                     .addSupportAccount(data),
                 Provider.of<ProcedureProvider>(context, listen: false)
                     .addSupportAccountSid(data?.sId),
+                Provider.of<ProcedureProvider>(context, listen: false)
+                    .setFieldValue(name, data?.sId),
                 if (isAChildren)
                   {
                     Provider.of<ProcedureProvider>(context, listen: false)
@@ -1950,9 +2307,21 @@ class MemberFieldWidget extends StatelessWidget {
                             .selectedSupportAccountSIdList,
                   }
               },
+              popupProps: PopupProps.bottomSheet(
+                isFilterOnline: true,
+                showSearchBox: true,
+                showSelectedItems: false,
+                searchFieldProps: TextFieldProps(
+                  controller: TextEditingController(),
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: 'Search...',
+                  ),
+                ),
+              ),
               dropdownDecoratorProps: DropDownDecoratorProps(
                 dropdownSearchDecoration: InputDecoration(
-                  hintText: "Choose Part",
+                  hintText: "Choose Member",
                   contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
                   border: OutlineInputBorder(
                     borderSide: BorderSide(color: primaryColor, width: 2),
@@ -2073,7 +2442,267 @@ class TextWidget extends StatelessWidget {
   }
 }
 
-class TextFieldWidget extends StatelessWidget {
+// class TextFieldWidget extends StatelessWidget {
+//   final String name;
+//   final String description;
+//   final bool isRequired;
+//   final bool isBorderShowing;
+//   final TextInputType keyboardType;
+//   final BuildContext context;
+//   final ChildrenModel fieldData;
+//   final bool isEditable;
+//   final int index;
+//   final int parentIndex;
+//   final bool isAChildren;
+//   final bool isMultiline;
+//
+//   TextFieldWidget(
+//       {super.key,
+//       required this.name,
+//       required this.description,
+//       required this.isBorderShowing,
+//       required this.isRequired,
+//       required this.context,
+//       required this.fieldData,
+//       required this.keyboardType,
+//       required this.index,
+//       required this.parentIndex,
+//       required this.isAChildren,
+//       required this.isMultiline,
+//       required this.isEditable}) {
+//     Future.delayed(const Duration(milliseconds: 0), () {
+//       final formStateProvider =
+//           Provider.of<ProcedureProvider>(context, listen: false);
+//       if (fieldData.isRequired == true) {
+//         formStateProvider.setFieldValue(fieldData.name ?? "", fieldData.value);
+//       }
+//       var value = "";
+//       console("TextFieldWidget VALUE => ${fieldData.value}");
+//       if (fieldData.value is List) {
+//         console("TextFieldWidget VALUE List => ${fieldData.value}");
+//         for (int i = 0; i < fieldData.value.length; i++) {
+//           var type = fieldData.value[i]['type'];
+//           if (type == "paragraph") {
+//             List<dynamic> children = fieldData.value[i]['children'];
+//
+//             for (int j = 0; j < children.length; j++) {
+//               var textValue = children[j]['text'];
+//
+//               value = "$value $textValue";
+//
+//               if (j == children.length - 1) {
+//                 value += "\n"; // Add newline
+//               }
+//             }
+//           } else if (type == 'bulleted-list') {
+//             List<dynamic> listItems = fieldData.value[i]['children'];
+//
+//             for (int k = 0; k < listItems.length; k++) {
+//               var listItem = listItems[k];
+//               var listItemType = listItem['type'];
+//               var listItemChildren = listItem['children'];
+//
+//               for (int l = 0; l < listItemChildren.length; l++) {
+//                 var listItemText = listItemChildren[l]['text'];
+//                 value = "$value • $listItemText";
+//
+//                 if (l == listItemChildren.length - 1) {
+//                   value += "\n"; // Add newline
+//                 }
+//               }
+//             }
+//           } else if (type == 'numbered-list') {
+//             List<dynamic> listItems = fieldData.value[i]['children'];
+//
+//             for (int k = 0; k < listItems.length; k++) {
+//               var listItem = listItems[k];
+//               var listItemType = listItem['type'];
+//               var listItemChildren = listItem['children'];
+//
+//               for (int l = 0; l < listItemChildren.length; l++) {
+//                 var listItemText = listItemChildren[l]['text'];
+//                 value = "$value ${k + 1}. $listItemText";
+//
+//                 if (l == listItemChildren.length - 1) {
+//                   value += "\n"; // Add newline
+//                 }
+//               }
+//             }
+//           }
+//         }
+//         formStateProvider.setFieldValue(fieldData.name ?? "", value);
+//       } else if (fieldData.value is String) {
+//         console("TextFieldWidget VALUE STRING => ${fieldData.value}");
+//         formStateProvider.setFieldValue(fieldData.name ?? "", fieldData.value);
+//       }
+//       console("Value => $value");
+//     });
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     // final HtmlEditorController controller = HtmlEditorController();
+//     QuillController controller = QuillController.basic();
+//
+//     var value = "";
+//     final formStateProvider =
+//         Provider.of<ProcedureProvider>(context, listen: false);
+//     if (fieldData.isRequired == true) {
+//       formStateProvider.setFieldValue(fieldData.name ?? "", fieldData.value);
+//     }
+//
+//     console("TextFieldWidget VALUE => ${fieldData.value}");
+//     if (fieldData.value is List) {
+//       console("TextFieldWidget VALUE List => ${fieldData.value}");
+//       for (int i = 0; i < fieldData.value.length; i++) {
+//         var type = fieldData.value[i]['type'];
+//         if (type == "paragraph") {
+//           List<dynamic> children = fieldData.value[i]['children'];
+//
+//           for (int j = 0; j < children.length; j++) {
+//             var textValue = children[j]['text'];
+//
+//             value = "$value $textValue";
+//
+//             if (j == children.length - 1) {
+//               value += "\n"; // Add newline
+//             }
+//           }
+//         } else if (type == 'bulleted-list') {
+//           List<dynamic> listItems = fieldData.value[i]['children'];
+//
+//           for (int k = 0; k < listItems.length; k++) {
+//             var listItem = listItems[k];
+//             var listItemType = listItem['type'];
+//             var listItemChildren = listItem['children'];
+//
+//             for (int l = 0; l < listItemChildren.length; l++) {
+//               var listItemText = listItemChildren[l]['text'];
+//               value = "$value • $listItemText";
+//
+//               if (l == listItemChildren.length - 1) {
+//                 value += "\n"; // Add newline
+//               }
+//             }
+//           }
+//         } else if (type == 'numbered-list') {
+//           List<dynamic> listItems = fieldData.value[i]['children'];
+//
+//           for (int k = 0; k < listItems.length; k++) {
+//             var listItem = listItems[k];
+//             var listItemType = listItem['type'];
+//             var listItemChildren = listItem['children'];
+//
+//             for (int l = 0; l < listItemChildren.length; l++) {
+//               var listItemText = listItemChildren[l]['text'];
+//               value = "$value ${k + 1}. $listItemText";
+//
+//               if (l == listItemChildren.length - 1) {
+//                 value += "\n"; // Add newline
+//               }
+//             }
+//           }
+//         }
+//       }
+//       formStateProvider.setFieldValue(name ?? "", value);
+//     } else if (fieldData.value is String) {
+//       value = fieldData.value;
+//       console("TextFieldWidget VALUE STRING => ${fieldData.value}");
+//       formStateProvider.setFieldValue(name ?? "", value);
+//     }
+//     console("Value => $value");
+//     // controller.
+//     return Container(
+//       padding: isBorderShowing
+//           ? const EdgeInsets.fromLTRB(16, 8, 16, 8)
+//           : EdgeInsets.zero,
+//       margin: const EdgeInsets.only(top: 10),
+//       decoration: BoxDecoration(
+//           borderRadius: BorderRadius.circular(isBorderShowing ? 8 : 0),
+//           color: Colors.white,
+//           border: Border.all(
+//               color: isBorderShowing ? chatBubbleSenderClosed : Colors.white,
+//               width: isBorderShowing ? 1 : 0)),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           const SizedBox(
+//             height: 8,
+//           ),
+//           TextView(
+//               text: "$name ${isRequired ? "*" : ""}",
+//               textColor: textColorLight,
+//               textFontWeight: FontWeight.normal,
+//               fontSize: 12),
+//           const SizedBox(
+//             height: 4,
+//           ),
+//           TextView(
+//               text: description,
+//               textColor: textColorDark,
+//               textFontWeight: FontWeight.normal,
+//               fontSize: 12),
+//
+//           const SizedBox(
+//             height: 8,
+//           ),
+//           Container(
+//             padding: const EdgeInsets.only(left: 10, right: 10),
+//             height: 200,
+//             width: context.fullWidth(),
+//             decoration: BoxDecoration(
+//               color: chatBubbleSenderClosed,
+//               borderRadius: const BorderRadius.only(
+//                 topLeft: Radius.circular(8),
+//                 topRight: Radius.circular(8),
+//               ),
+//             ),
+//             child: QuillToolbar.simple(
+//               configurations: QuillSimpleToolbarConfigurations(
+//                 controller: controller,
+//                 sharedConfigurations: const QuillSharedConfigurations(
+//                   locale: Locale('en'),
+//                 ),
+//               ),
+//             ),
+//           ),
+//           Container(
+//             padding: const EdgeInsets.only(left: 10, right: 10),
+//             height: 200,
+//             decoration: BoxDecoration(
+//               color: chatBubbleSenderClosed,
+//               borderRadius: const BorderRadius.only(
+//                 bottomLeft: Radius.circular(8),
+//                 bottomRight: Radius.circular(8),
+//               ),
+//             ),
+//             child: QuillEditor.basic(
+//               configurations: QuillEditorConfigurations(
+//                 controller: controller,
+//                 readOnly: false,
+//                 sharedConfigurations: const QuillSharedConfigurations(
+//                   locale: Locale('en'),
+//                 ),
+//               ),
+//             ),
+//           ),
+//
+//           AttachmentWidget(fieldData: fieldData),
+//           const SizedBox(
+//             height: 8,
+//           ),
+//
+//           if (!isBorderShowing) const Divider(),
+//           // TextField(
+//           //   keyboardType: keyboardType,
+//           // ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
+class NumberTextField extends StatelessWidget {
   final String name;
   final String description;
   final bool isRequired;
@@ -2087,7 +2716,7 @@ class TextFieldWidget extends StatelessWidget {
   final bool isAChildren;
   final bool isMultiline;
 
-  TextFieldWidget(
+  NumberTextField(
       {super.key,
       required this.name,
       required this.description,
@@ -2299,9 +2928,9 @@ class TextFieldWidget extends StatelessWidget {
                 return null;
               },
               onChanged: (value) {
-                // final formStateProvider =
-                //     Provider.of<ProcedureProvider>(context, listen: false);
-                // formStateProvider.setFieldValue(name, value);
+                final formStateProvider =
+                    Provider.of<ProcedureProvider>(context, listen: false);
+                formStateProvider.setFieldValue(name, value);
                 var body;
                 if (fieldData.type == "TEXT_AREA_FIELD") {
                   body = [
@@ -2428,7 +3057,7 @@ class DatePickerWidget extends StatelessWidget {
                   DateTime? pickedDate = await showDatePicker(
                     context: context,
                     initialDate: selectedDate ?? DateTime.now(),
-                    firstDate: DateTime(2000),
+                    firstDate: DateTime(1870),
                     lastDate: DateTime(2101),
                   );
 
@@ -2450,14 +3079,14 @@ class DatePickerWidget extends StatelessWidget {
                                 ?.children?[parentIndex]
                                 .children?[index]
                                 .value =
-                            DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSS'Z")
+                            DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSS'Z'")
                                 .format(pickedDate);
                       } else {
                         Provider.of<ProcedureProvider>(context, listen: false)
                                 .myProcedureRequest
                                 ?.children?[index]
                                 .value =
-                            DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSS'Z")
+                            DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSS'Z'")
                                 .format(pickedDate);
                       }
                     }
@@ -2706,6 +3335,8 @@ class CheckboxFieldWidget extends StatelessWidget {
 
         if (value == true) {
           formStateProvider.setFieldValue(fieldData.name ?? "", true);
+        } else {
+          formStateProvider.setFieldValue(fieldData.name ?? "", false);
         }
       }
     });
@@ -2727,22 +3358,15 @@ class CheckboxFieldWidget extends StatelessWidget {
           height: 16,
         ),
         TextView(
-            text: "$name ${isRequired ? "*" : ""}",
-            textColor: Colors.black,
-            textFontWeight: FontWeight.normal,
-            fontSize: 14),
-        const SizedBox(
-          height: 4,
-        ),
-        TextView(
             text: description,
             textColor: Colors.black,
             textFontWeight: FontWeight.w500,
             fontSize: 14),
         CheckboxListTile(
           contentPadding: const EdgeInsets.all(0),
+          visualDensity: const VisualDensity(horizontal: 0, vertical: -4),
           title: TextView(
-              text: fieldData.name ?? "",
+              text: "$name ${isRequired ? "*" : ""}",
               textColor: Colors.black,
               textFontWeight: FontWeight.normal,
               fontSize: 14),
@@ -2769,9 +3393,11 @@ class CheckboxFieldWidget extends StatelessWidget {
 
                 Future.delayed(const Duration(milliseconds: 100), () {
                   if (value == true) {
-                    formStateProvider.removeFieldValue(name);
-                  } else {
                     formStateProvider.setFieldValue(name, value);
+                    // formStateProvider.removeFieldValue(name);
+                  } else {
+                    formStateProvider.removeFieldValue(name);
+                    // formStateProvider.setFieldValue(name, value);
                   }
                 });
               }
@@ -2794,8 +3420,10 @@ class AttachmentWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     if (fieldData.attachments?.isNotEmpty == true) {
       return ExpansionTile(
+        tilePadding: EdgeInsets.zero,
         trailing: const SizedBox(),
         shape: Border.all(width: 0),
+        childrenPadding: EdgeInsets.zero,
         title: const Row(
           children: [
             TextView(

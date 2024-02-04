@@ -29,3 +29,20 @@ class FinalizeOemProcedureResponse {
     return data;
   }
 }
+
+class DownloadProcedurePDFResponse {
+  String? downloadProcedurePDF;
+
+  DownloadProcedurePDFResponse({this.downloadProcedurePDF});
+
+  DownloadProcedurePDFResponse.fromJson(Map<String, dynamic> json) {
+    downloadProcedurePDF = json['downloadProcedurePDF'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['downloadProcedurePDF'] = downloadProcedurePDF;
+    return data;
+  }
+}
+

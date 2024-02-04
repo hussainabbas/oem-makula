@@ -10,4 +10,10 @@ abstract class ListOwnOemProcedureTemplatesDao {
 
   @Insert(onConflict: OnConflictStrategy.replace)
   Future<void> insertListOwnOemProcedureTemplatesById(ListOwnOemProcedureTemplates template);
+
+  @Update(onConflict: OnConflictStrategy.replace)
+  Future<void> updateListOwnOemProcedureTemplates(ListOwnOemProcedureTemplates template);
+
+  @Query('DELETE FROM ListOwnOemProcedureTemplates')
+  Future<void> deleteAllRecords();
 }

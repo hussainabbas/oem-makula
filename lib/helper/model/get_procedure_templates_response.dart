@@ -8,6 +8,8 @@ import 'package:makula_oem/database/type_converters/list_own_procedure_templates
 import 'package:makula_oem/database/type_converters/list_signature_modal_converter.dart';
 import 'package:makula_oem/database/type_converters/table_option_model_converter.dart';
 
+import '../../database/type_converters/list_columns_modal_converter.dart';
+
 @entity
 class GetProcedureTemplatesResponse {
   @primaryKey
@@ -89,7 +91,7 @@ class ListOwnOemProcedureTemplates {
         children!.add(ChildrenModel.fromJson(v));
       });
     }
-    pageHeader = json['pageHeader'];
+    //pageHeader = json['pageHeader'];
     state = json['state'];
     pdfUrl = json['pdfUrl'];
     value = json['value'];
@@ -109,10 +111,60 @@ class ListOwnOemProcedureTemplates {
     if (children != null) {
       data['children'] = children!.map((v) => v.toJson()).toList();
     }
-    data['pageHeader'] = pageHeader;
+    //data['pageHeader'] = pageHeader;
     data['state'] = state;
     data['pdfUrl'] = pdfUrl;
     return data;
+  }
+
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is ListOwnOemProcedureTemplates &&
+              runtimeType == other.runtimeType &&
+              sId == other.sId &&
+              name == other.name &&
+              description == other.description &&
+              createdAt == other.createdAt &&
+              updatedAt == other.updatedAt &&
+              state == other.state &&
+              pdfUrl == other.pdfUrl &&
+              value == other.value &&
+              listEquals(signatures, other.signatures) &&
+              listEquals(children, other.children) &&
+              pageHeader == other.pageHeader;
+
+  @override
+  int get hashCode =>
+      sId.hashCode ^
+      name.hashCode ^
+      description.hashCode ^
+      createdAt.hashCode ^
+      updatedAt.hashCode ^
+      state.hashCode ^
+      pdfUrl.hashCode ^
+      value.hashCode ^  // Include the value property in hashCode
+      listHashCode(signatures) ^
+      listHashCode(children) ^
+      pageHeader.hashCode;
+
+  bool listEquals(List<dynamic>? list1, List<dynamic>? list2) {
+    if (list1 == null && list2 == null) return true;
+    if (list1 == null || list2 == null || list1.length != list2.length) return false;
+    for (int i = 0; i < list1.length; i++) {
+      if (list1[i] != list2[i]) return false;
+    }
+    return true;
+  }
+
+  int listHashCode(List<dynamic>? list) {
+    if (list == null) return 0;
+    int result = 0;
+    for (dynamic element in list) {
+      result = 31 * result + element.hashCode;
+    }
+    return result;
   }
 }
 
@@ -231,7 +283,7 @@ class ChildrenModel {
 class TableOptionModel {
   String? nId;
   String? rowCount;
-
+  @TypeConverters([ListColumnsModelConverter])
   List<ColumnsModel>? columns;
 
   TableOptionModel({this.nId, this.rowCount, this.columns});
@@ -252,7 +304,7 @@ class TableOptionModel {
     data['_id'] = nId;
     data['rowCount'] = rowCount;
     if (columns != null) {
-      data['columns'] = columns!.map((v) => v.toJson()).toList();
+      data['columns'] = columns!.map((v) => v.toJson2()).toList();
     }
     return data;
   }
@@ -267,7 +319,7 @@ class ColumnsModel {
   @TypeConverters([DynamicValueConverter])
   dynamic? value;
 
-  ColumnsModel({this.sId, this.heading, this.width, this.value});
+  ColumnsModel({ this.sId, required this.heading, this.width, this.value});
 
   ColumnsModel.fromJson(Map<String, dynamic> json) {
     sId = json['_id'];
@@ -356,7 +408,7 @@ class SignatureModel {
   String? date;
   String? signatureUrl;
 
-  SignatureModel({this.sId, this.signatoryTitle});
+  SignatureModel({this.sId, this.signatoryTitle, this.name, this.date, this.signatureUrl});
 
   SignatureModel.fromJson(Map<String, dynamic> json) {
     sId = json['_id'];

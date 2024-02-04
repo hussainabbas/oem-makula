@@ -130,7 +130,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                       shrinkWrap: true,
                       itemBuilder: (context, i) {
                         return TicketWidget(
-                          item: _listOpenTickets?.openTicket![i],
+                          item: _listOpenTickets?.openTicket?[i],
                           statusData: oemStatus,
                         );
                       })
@@ -161,7 +161,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                     child: ListTile(
                       tileColor: containerColorUnFocused,
                       title: Text(
-                        "Closed Tickets (${_listUserCloseTickets?.closeTickets == null ? 0 : _listUserCloseTickets?.closeTickets?.length})",
+                        "Closed Work Orders (${_listUserCloseTickets?.closeTickets == null ? 0 : _listUserCloseTickets?.closeTickets?.length})",
                         style: TextStyle(
                             fontSize: 12,
                             color: textColorDark,
@@ -281,6 +281,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       var memberShipResult = await widget._pubnub.getMemberships();
       List<MembershipMetadata> foundListFromPN = [];
       for (var item in tickets.openTicket!) {
+        console("item.status => ${item.status}");
         if (item.status != "closed") {
           foundListFromPN.addAll(memberShipResult.metadataList!
               .where((element) =>

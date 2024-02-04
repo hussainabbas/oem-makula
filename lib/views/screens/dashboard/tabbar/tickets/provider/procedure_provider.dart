@@ -24,9 +24,9 @@ class ProcedureProvider with ChangeNotifier {
   List<PartsModel>? get selectedPartsList => _selectedPartsList;
 
 
-  List<ListOwnOemSupportAccounts>? _selectedSupportAccount = [];
+  List<ListSupportAccounts>? _selectedSupportAccount = [];
 
-  List<ListOwnOemSupportAccounts>? get selectedSupportAccount => _selectedSupportAccount;
+  List<ListSupportAccounts>? get selectedSupportAccount => _selectedSupportAccount;
 
 
   List<String>? _selectedPartsSIdList = [];
@@ -63,6 +63,13 @@ class ProcedureProvider with ChangeNotifier {
 
   ListOwnOemProcedureTemplates? get myProcedureRequest => _myProcedureRequest;
 
+  bool _isDirty = false;
+  bool get isDirty => _isDirty;
+
+  Map<String, dynamic> _initialFieldValues = {};
+
+
+
   void addPartModel(PartsModel? model) {
     _selectedPartsList ??= [];
     if (!_selectedPartsList!.contains(model)) {
@@ -82,6 +89,16 @@ class ProcedureProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void clearPartModel() {
+    _selectedPartsList?.clear();
+    notifyListeners();
+  }
+
+  void clearPartModelSId() {
+    _selectedPartsSIdList?.clear();
+    notifyListeners();
+  }
+
   void removePartModel(PartsModel? model) {
     _selectedPartsList?.remove(model!);
     notifyListeners();
@@ -92,7 +109,7 @@ class ProcedureProvider with ChangeNotifier {
   }
 
 
-  void addSupportAccount(ListOwnOemSupportAccounts? model) {
+  void addSupportAccount(ListSupportAccounts? model) {
     _selectedSupportAccount ??= [];
     if (!_selectedSupportAccount!.contains(model)) {
       _selectedSupportAccount?.add(model!);
@@ -110,7 +127,7 @@ class ProcedureProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void removeSupportAccount(ListOwnOemSupportAccounts? model) {
+  void removeSupportAccount(ListSupportAccounts? model) {
     _selectedSupportAccount?.remove(model!);
     notifyListeners();
   }
@@ -140,9 +157,26 @@ class ProcedureProvider with ChangeNotifier {
   void setFieldValue(String fieldName, dynamic value) {
     _fieldValues[fieldName] = value;
 
-    console("setFieldValue => $_fieldValues");
     _isValid = !hasNullValues(fieldValues);
+
+    console("setFieldValue => isFormDirty: ${isFormDirty()}");
+    if (isFormDirty()) {
+      _isDirty = true;
+    } else {
+      _isDirty = false;
+      return;
+    }
+
+    _initialFieldValues = Map.from(_fieldValues);
     notifyListeners();
+  }
+
+  bool isFormDirty() {
+    return _fieldValues.entries.any((entry) => entry.value != _initialFieldValues[entry.key]);
+  }
+  void resetDirtyState() {
+    // Reset the dirty state when needed (e.g., after saving)
+    _isDirty = false;
   }
 
   void removeFieldValue(String fieldName) {
@@ -168,6 +202,13 @@ class ProcedureProvider with ChangeNotifier {
     }
     _isValid = !hasNullValues(fieldValues);
 
+    if (isFormDirty()) {
+      _isDirty = true;
+    } else {
+      _isDirty = false;
+    }
+    _initialFieldValues = Map.from(_fieldValues);
+
     notifyListeners(); // Notify listeners to rebuild widgets that depend on this provider
   }
 
@@ -179,6 +220,12 @@ class ProcedureProvider with ChangeNotifier {
   }
 
   void addSignature(SignatureRequestModel model) {
+    _signatureModel?.add(model);
+    notifyListeners();
+  }
+
+  void updateSignature(SignatureRequestModel model, int index) {
+    _signatureModel?.removeAt(index);
     _signatureModel?.add(model);
     notifyListeners();
   }

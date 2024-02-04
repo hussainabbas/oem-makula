@@ -8,8 +8,6 @@ import 'package:makula_oem/database/type_converters/statuses_model_converter.dar
 @entity
 class StatusData {
   @primaryKey
-  int? id;
-
   @TypeConverters([ListOwnOemOpenTicketsListModelConverter])
   List<ListOwnOemOpenTickets>? listOwnOemOpenTickets;
 

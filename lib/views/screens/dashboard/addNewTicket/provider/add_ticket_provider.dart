@@ -4,6 +4,8 @@ import 'package:makula_oem/helper/model/list_customers.dart';
 import 'package:makula_oem/helper/model/list_facility_users.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
 
+import '../../../../../helper/model/get_list_support_accounts_response.dart';
+
 class AddTicketProvider with ChangeNotifier {
   int _selectionTicketTypeRadio = 1;
   bool _isTitleFocused = false;
@@ -15,7 +17,7 @@ class AddTicketProvider with ChangeNotifier {
   Customers? _facilityData = Customers();
   ListMachines? _selectedMachineData = ListMachines();
   ListOwnOemFacilityUsers? _reporterData = ListOwnOemFacilityUsers();
-  List<ListOwnOemFacilityUsers>? _reporterList = [];
+  List<ListSupportAccounts>? _reporterList = [];
   List<ListMachines>? _machineList = [];
   DateTime? _selectedDate = null;
 
@@ -27,7 +29,7 @@ class AddTicketProvider with ChangeNotifier {
 
   ListOwnOemFacilityUsers? get reporterData => _reporterData;
 
-  List<ListOwnOemFacilityUsers>? get reporterList => _reporterList;
+  List<ListSupportAccounts>? get reporterList => _reporterList;
 
   bool get isTitleFocused => _isTitleFocused;
 
@@ -105,7 +107,7 @@ class AddTicketProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  setReporterListFromFacility(List<ListOwnOemFacilityUsers>? list) {
+  setReporterListFromFacility(List<ListSupportAccounts>? list) {
     _reporterList = list;
     notifyListeners();
   }

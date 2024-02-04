@@ -9,4 +9,7 @@ abstract class GetTicketDetailResponseDao {
 
   @Insert(onConflict: OnConflictStrategy.replace)
   Future<void> insertOrUpdateTicketDetailResponse(GetOwnOemTicketById ticketDetailResponse);
+
+  @Query('DELETE FROM GetOwnOemTicketById')
+  Future<void> deleteAllRecords();
 }

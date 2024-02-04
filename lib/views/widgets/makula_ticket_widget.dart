@@ -27,21 +27,46 @@ class TicketWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var isUnread = _item!.channelsWithCount > 0;
-    Statuses? foundStatus =
-        statusData?.listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
-      (status) => status.sId == _item?.status,
-    );
-    var status = foundStatus?.label ?? "";
-    var statusColor = foundStatus?.color ?? "";
-    console("ticketType => ${_item?.ticketType}");
+    String? status = "Open";
+    String statusColor = "#EE0064";
+    console("ticketType => ${_item?.status}");
+    statusData?.listOwnOemOpenTickets?[0].oem?.statuses?.forEach((element) {
+      console("ticketType 2 => ${element.sId} -- ${element.color} -- ${element.label}");
+      if (element.sId == _item?.status) {
+        console("ticketType => ${element.color}");
+        status = element.label;
+        statusColor = element.color ?? "#EE0064";
+      }
+    });
+  //  console("ticketType => ${statusData?.listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere((status) => status.sId == _item?.status)}");
+    // Statuses? foundStatus =
+    //     statusData?.listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
+    //   (status) => status.sId == _item?.status,
+    // );
+
+
     var ticketType = _item?.ticketType ?? ticketTypeServiceRequest;
     return isUnread
-        ? _unreadTicket(context, isUnread, status, ticketType, statusColor)
-        : _readTicket(context, isUnread, status, ticketType, statusColor);
+        ? _unreadTicket(context, isUnread, status ?? "Open", ticketType, statusColor )
+        : _readTicket(context, isUnread, status ?? "Open", ticketType, statusColor);
   }
 
   Widget _itemWidget(BuildContext context, bool isUnread, String status,
       String ticketType, String statusColor) {
+
+    String? assigneeName;
+    if (_item?.assignee != null) {
+      assigneeName = _item?.assignee?.name?.toUpperCase();
+    } else if (_item?.user != null) {
+      assigneeName = _item?.user?.name?.toUpperCase();
+    } else {
+      assigneeName = notYetAssigned.toUpperCase();
+    }
+
+
+    console("assigneeName => $assigneeName");
+    console("assigneeName => ${_item?.user?.name?.toUpperCase()}");
+    console("assigneeName => ${_item?.assignee?.name?.toUpperCase()}");
     return GestureDetector(
       onTap: () async {
         context.read<TicketProvider>().setTicketItemDetails(_item!);
@@ -131,37 +156,36 @@ class TicketWidget extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      SvgPicture.asset(
-                        status != "Closed" // CLOSED
-                            ? "assets/images/assignee.svg"
-                            : "assets/images/ic_assignee_closed.svg",
-                      ),
-                      const SizedBox(
-                        width: 6,
-                      ),
-                      TextView(
-                          text: _item?.assignee != null
-                              ? _item?.assignee?.name
-                                      ?.toString()
-                                      .toUpperCase() ??
-                                  ""
-                              : notYetAssigned.toUpperCase(),
-                          textColor: textColorLight,
-                          textFontWeight: FontWeight.w600,
-                          fontSize: 12),
-                    ],
+                  Flexible(
+                    child: Row(
+                      children: [
+                        SvgPicture.asset(
+                          status != "Closed" // CLOSED
+                              ? "assets/images/assignee.svg"
+                              : "assets/images/ic_assignee_closed.svg",
+                        ),
+                        const SizedBox(
+                          width: 6,
+                        ),
+                        Expanded(
+                          child: TextView(
+                              text: assigneeName ?? "",
+                              textColor: textColorLight,
+                              textFontWeight: FontWeight.w600,
+                              fontSize: 12),
+                        ),
+                      ],
+                    ),
                   ),
                   Container(
                     padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
                     decoration: BoxDecoration(
-                      color: getStatusContainerColor(status),
+                      color: hexStringToColor2F(statusColor),
                       borderRadius: BorderRadius.circular(4.0),
                     ),
                     child: TextView(
                         text: status.toUpperCase(),
-                        textColor: getStatusColor(status),
+                        textColor: hexStringToColor(statusColor),
                         textFontWeight: FontWeight.w600,
                         fontSize: 12),
                   )

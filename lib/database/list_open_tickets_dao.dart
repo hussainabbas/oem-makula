@@ -15,4 +15,7 @@ abstract class ListOpenTicketsDao {
 
   @delete
   Future<void> deleteListOpenTickets(ListOpenTickets listOpenTickets);
+
+  @Query('DELETE FROM ListOpenTickets')
+  Future<void> deleteAllRecords();
 }

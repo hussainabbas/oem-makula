@@ -10,14 +10,20 @@ import 'package:makula_oem/helper/model/list_facility_users.dart';
 import 'package:makula_oem/helper/model/list_own_oem_customers_model.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
+import 'package:makula_oem/helper/utils/context_function.dart';
 import 'package:makula_oem/helper/utils/extension_functions.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
+import 'package:makula_oem/views/modals/bottom_sheet_generic_modal.dart';
 import 'package:makula_oem/views/screens/dashboard/addNewTicket/provider/add_ticket_provider.dart';
 import 'package:makula_oem/views/screens/dashboard/addNewTicket/viewmodel/add_ticket_view_model.dart';
 import 'package:makula_oem/views/widgets/makula_app_bar_gray.dart';
 import 'package:makula_oem/views/widgets/makula_edit_text.dart';
 import 'package:makula_oem/views/widgets/makula_text_view.dart';
 import 'package:provider/provider.dart';
+
+import '../../../../helper/model/get_inventory_part_list_response.dart';
+import '../../../../helper/model/get_list_support_accounts_response.dart';
+import '../tabbar/tickets/details/procedure_viewmodel.dart';
 
 class CreateNewTicket extends StatefulWidget {
   const CreateNewTicket({super.key});
@@ -28,7 +34,7 @@ class CreateNewTicket extends StatefulWidget {
 
 class _CreateNewTicketState extends State<CreateNewTicket> {
   AllOwnOemCustomersModel _customersModel = AllOwnOemCustomersModel();
-  GetMachinesResponse _machinesResponse = GetMachinesResponse();
+  final GetMachinesResponse _machinesResponse = GetMachinesResponse();
   FacilityUsersModel _facilityUsersModel = FacilityUsersModel();
   late AddTicketProvider addTicketProvider;
   final TextEditingController _titleController = TextEditingController();
@@ -127,7 +133,7 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
                   child: const Padding(
                       padding: EdgeInsets.all(14.0),
                       child: TextView(
-                          text: "Submit the ticket",
+                          text: "Submit Work Order",
                           textColor: Colors.white,
                           textFontWeight: FontWeight.w700,
                           fontSize: 14)))),
@@ -145,7 +151,7 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
               Container(
                   alignment: Alignment.topLeft,
                   child: TextView(
-                      text: "Choose Ticket Type *",
+                      text: "Choose Work Order Type *",
                       textColor: textColorLight,
                       textFontWeight: FontWeight.w500,
                       fontSize: 12)),
@@ -200,6 +206,32 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
               const SizedBox(
                 height: 8,
               ),
+              // Container(
+              //   width: context.fullWidth(),
+              //   padding: const EdgeInsets.all(16),
+              //   decoration: BoxDecoration(
+              //       color: Colors.white,
+              //       borderRadius: BorderRadius.circular(8),
+              //       border: Border.all(width: 1, color: Colors.grey)),
+              //   child: GestureDetector(
+              //       onTap: () {
+              //         FocusScope.of(context).unfocus();
+              //         BottomSheetGenericModal.show<Customers>(context, "Select Facility", _customersModel.listAllOwnOemCustomers?.customers, null, (p0) => p0?.name ?? "", (data) {
+              //               addTicketProvider.setFacilityData(data);
+              //               addTicketProvider.setMachineData(null);
+              //               provider.setReporterData(null);
+              //               _facilityUsersModel = GetListSupportAccountsResponse();
+              //               _listOwnOemFacilityUsers(data?.sId.toString() ?? "");
+              //               addTicketProvider.getMachineListFromFacility(data?.machines);
+              //         });
+              //       },
+              //       child: TextView(
+              //           text: addTicketProvider.facilityData != null ?  addTicketProvider.facilityData?.name ?? "" : "Select Facility",
+              //           textColor: Colors.grey,
+              //           textFontWeight: FontWeight.normal,
+              //           fontSize: 14)),
+              // ),
+
               DropdownSearch<Customers>(
                 //mode: Mode.MENU,
                 //showSearchBox: true,
@@ -215,6 +247,18 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
                   _listOwnOemFacilityUsers(data?.sId.toString() ?? ""),
                   addTicketProvider.getMachineListFromFacility(data?.machines),
                 },
+                popupProps: PopupProps.modalBottomSheet(
+                  isFilterOnline: true,
+                  showSearchBox: true,
+                  showSelectedItems: false,
+                  searchFieldProps: TextFieldProps(
+                    controller: TextEditingController(),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hintText: 'Search...',
+                    ),
+                  ),
+                ),
                 dropdownDecoratorProps: DropDownDecoratorProps(
                   dropdownSearchDecoration: InputDecoration(
                     hintText: "Select Facility",
@@ -265,6 +309,33 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
                 height: 6,
               ),
 
+              // Container(
+              //   width: context.fullWidth(),
+              //   padding: const EdgeInsets.all(16),
+              //   decoration: BoxDecoration(
+              //       color: Colors.white,
+              //       borderRadius: BorderRadius.circular(8),
+              //       border: Border.all(width: 1, color: Colors.grey)),
+              //   child: GestureDetector(
+              //       onTap: () {
+              //         FocusScope.of(context).unfocus();
+              //         BottomSheetGenericModal.show(context, "Select Machine", addTicketProvider.machineList, null, (p0) => p0?.name ?? "", (data) {
+              //                   addTicketProvider.setMachineData(data!);
+              //                   provider.setReporterData(null);
+              //                   // addTicketProvider.setFacilityData(Customers(
+              //                   //   sId: data.customer?.sId.toString();
+              //                   //   name: data.customer?.name.toString();
+              //                   // ));
+              //                   _listOwnOemFacilityUsers(data.customer?.sId.toString() ?? "");
+              //         });
+              //       },
+              //       child: TextView(
+              //           text: addTicketProvider.selectedMachineData != null ?  addTicketProvider.selectedMachineData?.name ?? "" : "Select Machine",
+              //           textColor: Colors.grey,
+              //           textFontWeight: FontWeight.normal,
+              //           fontSize: 14)),
+              // ),
+
               DropdownSearch<ListMachines>(
                 //mode: Mode.MENU,
                 //showSearchBox: true,
@@ -282,6 +353,18 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
                       // )),
                       _listOwnOemFacilityUsers(data.customer?.sId.toString() ?? ""),
                 },
+                popupProps: PopupProps.modalBottomSheet(
+                  isFilterOnline: true,
+                  showSearchBox: true,
+                  showSelectedItems: false,
+                  searchFieldProps: TextFieldProps(
+                    controller: TextEditingController(),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hintText: 'Search...',
+                    ),
+                  ),
+                ),
                 dropdownDecoratorProps: DropDownDecoratorProps(
                   dropdownSearchDecoration: InputDecoration(
                     hintText: "Select Machine",
@@ -298,56 +381,6 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
                   ),
                 ),
               ),
-              // DropdownSearch<ListMachines>(
-              //   mode: Mode.MENU,
-              //   showSearchBox: true,
-              //   selectedItem: addTicketProvider.selectedMachineData,
-              //   items: addTicketProvider.machineList,
-              //   itemAsString: (ListMachines? u) => u == null
-              //       ? ""
-              //       : "${u.name.toString()} • ${u.serialNumber.toString()}",
-              //   onChanged: (ListMachines? data) => {
-              //     addTicketProvider.setMachineData(data!),
-              //     provider.setReporterData(null),
-              //     provider.setReporterData(null),
-              //     addTicketProvider.setFacilityData(ListOwnOemCustomers(
-              //       sId: data.customers![0].sId.toString(),
-              //       name: data.customers![0].name.toString(),
-              //     )),
-              //     _listOwnOemFacilityUsers(data.customers![0].sId.toString()),
-              //   },
-              //   popupShape: RoundedRectangleBorder(
-              //     side: BorderSide(color: primaryColor, width: .5),
-              //     borderRadius:
-              //         const BorderRadius.vertical(bottom: Radius.circular(8)),
-              //   ),
-              //   searchFieldProps: TextFieldProps(
-              //     decoration: InputDecoration(
-              //       hintText: "Search Machine",
-              //       contentPadding: const EdgeInsets.only(left: 8, bottom: 4),
-              //
-              //       //This is for Inner DropDown Search Input
-              //       enabledBorder: OutlineInputBorder(
-              //         borderSide: BorderSide(color: textColorLight, width: .5),
-              //         borderRadius: const BorderRadius.all(Radius.circular(8)),
-              //       ),
-              //     ),
-              //   ),
-              //   dropdownSearchDecoration: InputDecoration(
-              //     hintText: "Select Machine",
-              //     contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
-              //     border: OutlineInputBorder(
-              //       borderSide: BorderSide(color: primaryColor, width: 2),
-              //       borderRadius: const BorderRadius.all(Radius.circular(8)),
-              //     ),
-              //     //This is for the main panel, when the dropdown appears.
-              //     focusedBorder: OutlineInputBorder(
-              //       borderSide: BorderSide(color: primaryColor, width: .5),
-              //       borderRadius:
-              //           const BorderRadius.vertical(top: Radius.circular(8)),
-              //     ),
-              //   ),
-              // ),
               addTicketProvider.selectedMachineData == null
                   ? Container(
                       margin: const EdgeInsets.only(top: 4),
@@ -388,7 +421,26 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
               const SizedBox(
                 height: 6,
               ),
-
+              // Container(
+              //   width: context.fullWidth(),
+              //   padding: const EdgeInsets.all(16),
+              //   decoration: BoxDecoration(
+              //       color: Colors.white,
+              //       borderRadius: BorderRadius.circular(8),
+              //       border: Border.all(width: 1, color: Colors.grey)),
+              //   child: GestureDetector(
+              //       onTap: () {
+              //         FocusScope.of(context).unfocus();
+              //         BottomSheetGenericModal.show(context, "Select Reporter", _facilityUsersModel.listOwnOemSupportAccounts , null, (p0) => p0?.name ?? "", (data) {
+              //           addTicketProvider.setReporterData(data);
+              //         });
+              //       },
+              //       child: TextView(
+              //           text: addTicketProvider.reporterData != null ?  addTicketProvider.reporterData?.name ?? "" : "Select Reporter",
+              //           textColor: Colors.grey,
+              //           textFontWeight: FontWeight.normal,
+              //           fontSize: 14)),
+              // ),
               DropdownSearch<ListOwnOemFacilityUsers>(
                 //mode: Mode.MENU,
                 //showSearchBox: true,
@@ -398,6 +450,18 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
                 u == null ? "" : u.name.toString(),
                   onChanged: (ListOwnOemFacilityUsers? data) =>
                       {addTicketProvider.setReporterData(data)},
+                popupProps: PopupProps.modalBottomSheet(
+                  isFilterOnline: true,
+                  showSearchBox: true,
+                  showSelectedItems: false,
+                  searchFieldProps: TextFieldProps(
+                    controller: TextEditingController(),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hintText: 'Search...',
+                    ),
+                  ),
+                ),
                 dropdownDecoratorProps: DropDownDecoratorProps(
                   dropdownSearchDecoration: InputDecoration(
                     hintText: "Select Reporter",
@@ -414,44 +478,6 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
                   ),
                 ),
               ),
-              // DropdownSearch<ListOwnOemFacilityUsers>(
-              //   mode: Mode.MENU,
-              //   showSearchBox: false,
-              //   items: _facilityUsersModel.listOwnOemFacilityUsers,
-              //   selectedItem: addTicketProvider.reporterData,
-              //   itemAsString: (ListOwnOemFacilityUsers? u) =>
-              //       u == null ? "" : u.name.toString(),
-              //   onChanged: (ListOwnOemFacilityUsers? data) =>
-              //       {addTicketProvider.setReporterData(data)},
-              //   popupShape: RoundedRectangleBorder(
-              //     side: BorderSide(color: primaryColor, width: .5),
-              //     borderRadius:
-              //         const BorderRadius.vertical(bottom: Radius.circular(8)),
-              //   ),
-              //   searchFieldProps: TextFieldProps(
-              //     decoration: InputDecoration(
-              //       hintText: "Search Reporter",
-              //       contentPadding: const EdgeInsets.only(left: 8, bottom: 4),
-              //       enabledBorder: OutlineInputBorder(
-              //         borderSide: BorderSide(color: textColorLight, width: .5),
-              //         borderRadius: const BorderRadius.all(Radius.circular(8)),
-              //       ),
-              //     ),
-              //   ),
-              //   dropdownSearchDecoration: InputDecoration(
-              //     hintText: "Select Reporter",
-              //     contentPadding: const EdgeInsets.only(left: 16, bottom: 8),
-              //     border: OutlineInputBorder(
-              //       borderSide: BorderSide(color: primaryColor, width: 2),
-              //       borderRadius: const BorderRadius.all(Radius.circular(8)),
-              //     ),
-              //     focusedBorder: OutlineInputBorder(
-              //       borderSide: BorderSide(color: primaryColor, width: .5),
-              //       borderRadius:
-              //           const BorderRadius.vertical(top: Radius.circular(8)),
-              //     ),
-              //   ),
-              // ),
               const SizedBox(
                 height: 24,
               ),
@@ -470,7 +496,7 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
               Container(
                   alignment: Alignment.topLeft,
                   child: TextView(
-                      text: "Ticket Title *",
+                      text: "Work Order Title *",
                       textColor: textColorLight,
                       textFontWeight: FontWeight.w500,
                       fontSize: 12)),
@@ -522,7 +548,7 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
               Container(
                   alignment: Alignment.topLeft,
                   child: TextView(
-                      text: "Ticket Description",
+                      text: "Work Order Description",
                       textColor: textColorLight,
                       textFontWeight: FontWeight.w500,
                       fontSize: 12)),
@@ -582,22 +608,40 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
   _listOwnOemFacilityUsers(String facilityId) async {
     console("facilityId=> $facilityId");
     context.showCustomDialog();
+
     var result = await AddTicketViewModel().listFacilityUsers(facilityId);
     Navigator.pop(context);
     result.join(
-        (failed) => {console("failed => ${failed.exception}")},
-        (loaded) => {
+            (failed) => {console("failed => ${failed.exception}")},
+            (loaded) => {
               _facilityUsersModel = loaded.data,
               _setReporterListOnProvider(loaded.data),
-            },
-        (loading) => {
-              console("loading => "),
-            });
+        },
+            (loading) => {
+          console("loading => "),
+        });
   }
 
-  _setReporterListOnProvider(FacilityUsersModel data) {
+  // _listOwnOemFacilityUsers(String facilityId) async {
+  //   console("facilityId=> $facilityId");
+  //   context.showCustomDialog();
+  //
+  //   var result = await ProcedureViewModel().getListSupportAccounts();
+  //   Navigator.pop(context);
+  //   result.join(
+  //           (failed) => {console("failed => ${failed.exception}")},
+  //           (loaded) => {
+  //             _facilityUsersModel = loaded.data,
+  //             _setReporterListOnProvider(loaded.data),
+  //       },
+  //           (loading) => {
+  //         console("loading => "),
+  //       });
+  // }
+
+  _setReporterListOnProvider(GetListSupportAccountsResponse response) {
     Provider.of<AddTicketProvider>(context, listen: false)
-        .setReporterListFromFacility(data.listOwnOemFacilityUsers);
+        .setReporterListFromFacility(response.listOwnOemSupportAccounts);
   }
 
   _submitTicket() async {
@@ -629,7 +673,7 @@ class _CreateNewTicketState extends State<CreateNewTicket> {
           (failed) => {console("failed => ${failed.exception}")},
           (loaded) => {
                 Navigator.pop(context),
-                context.showSuccessSnackBar("Ticket Created"),
+                context.showSuccessSnackBar("Work order created successfully"),
               },
           (loading) => {
                 console("loading => "),

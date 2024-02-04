@@ -166,4 +166,32 @@ class TicketViewModel {
     }
     return ApiResultState.failed(unexpectedError);
   }
+  Future<ApiResultState> updateTicketReporter(String ticketId, String reporter) async {
+    GraphQLConfig graphQLConfiguration = GraphQLConfig();
+    GraphQLClient _client = graphQLConfiguration.clientToQuery();
+    console("updateTicketReporter => $ticketId -- $reporter");
+    QueryResult result = await _client.query(
+      QueryOptions(
+        document: gql(updateOwnOemTicket),
+        variables: {
+          "input": {
+            "ticketId": ticketId,
+            "user": reporter
+          }
+        },
+      ),
+    );
+    if (result.isLoading) {
+      return ApiResultState.loading();
+    }
+    if (result.hasException) {
+      console(
+          "TicketViewModel: getTicketById - hasException => ${result.exception}");
+      return ApiResultState.failed(unexpectedError);
+    } else if (result.data != null) {
+      var response = GeneralResponse.fromJson(result.data!);
+      return ApiResultState.loaded(response);
+    }
+    return ApiResultState.failed(unexpectedError);
+  }
 }

@@ -3,9 +3,7 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chat_bubble/bubble_type.dart';
 import 'package:flutter_chat_bubble/chat_bubble.dart';
-import 'package:flutter_chat_bubble/clippers/chat_bubble_clipper_1.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:makula_oem/helper/model/chat_message_model.dart';
@@ -16,8 +14,6 @@ import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
 import 'package:makula_oem/helper/utils/document_type.dart';
 import 'package:makula_oem/helper/utils/extension_functions.dart';
-import 'package:makula_oem/helper/utils/hive_resources.dart';
-import 'package:makula_oem/helper/utils/offline_resources.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
 import 'package:makula_oem/main.dart';
 import 'package:makula_oem/pubnub/message_provider.dart';
@@ -29,14 +25,18 @@ import 'package:provider/provider.dart';
 import 'package:pubnub/pubnub.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class ChatScreen extends StatefulWidget {
-  ChatScreen({Key? key, required String channelId, required OpenTicket ticket})
-      : _ticket = ticket,
-        _channelId = channelId,
-        super(key: key);
+import '../../../../../../helper/model/get_own_oem_ticket_by_id_response.dart';
+import '../../../../../../helper/model/get_ticket_detail_response.dart';
+import '../../../../../../helper/viewmodels/tickets_view_model.dart';
 
-  OpenTicket _ticket;
-  String _channelId;
+class ChatScreen extends StatefulWidget {
+  const ChatScreen(
+      {super.key, required String channelId, required OpenTicket ticket})
+      : _ticket = ticket,
+        _channelId = channelId;
+
+  final OpenTicket _ticket;
+  final String _channelId;
 
   @override
   _ChatScreenState createState() => _ChatScreenState();
@@ -44,137 +44,173 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
-
-  //OpenTicket _ticket = OpenTicket();
   PubnubInstance? _pubnubInstance;
   final appPreferences = AppPreferences();
   late CurrentUser userValue;
   MessageProvider? messageProvider;
   final ScrollController _scrollController = ScrollController();
-
-  //DashboardProvider? dashboardProvider;
   final ImagePicker _picker = ImagePicker();
+  var _status = "";
+  GetOwnOemTicketById _ticketDetailData = GetOwnOemTicketById();
+
+  _getTicketDetailResponse() async {
+    var isConnected = await isConnectedToNetwork();
+    if (isConnected) {
+      var result =
+      await TicketViewModel().getTicketById(widget._ticket.sId.toString());
+      result.join(
+              (failed) => {console("failed => ${failed.exception}")},
+              (loaded) => {
+                _observerGetTicketDetailResponse(loaded.data),
+          },
+              (loading) => {
+            console("loading => "),
+          });
+
+    } else {
+      _ticketDetailData = (await appDatabase?.getTicketDetailResponseDao
+          .getTicketDetailResponseById(widget._ticket.sId ?? ""))!;
+      var statusData = await getStatusById(_ticketDetailData.status ?? "");
+      _status = statusData?.label ?? "";
+      _getValueFromSP();
+    }
+  }
+
+
+  _observerGetTicketDetailResponse(GetTicketDetailResponse response) async {
+    var statusData = await getStatusById(
+        response.getOwnOemTicketById?.status.toString() ?? "");
+    _status = statusData?.label ?? "";
+    _ticketDetailData = response.getOwnOemTicketById!;
+
+    await appDatabase?.getTicketDetailResponseDao
+        .insertOrUpdateTicketDetailResponse(response.getOwnOemTicketById!);
+    _getValueFromSP();
+  }
+
 
   _getValueFromSP() async {
     userValue = (await appDatabase?.userDao.getCurrentUserDetailsFromDb())!;
-    // userValue = HiveResources.currentUserBox!.get(OfflineResources.CURRENT_USER_RESPONSE)!;
-    // userValue =
-    //     CurrentUser.fromJson(await appPreferences.getData(AppPreferences.USER));
+    // var statusData = await getStatusById(widget._ticket.status.toString());
+    // _status = statusData?.label ?? "";
   }
 
   @override
   Widget build(BuildContext context) {
-    console("ChatScreen => ${widget._channelId}");
-    _getValueFromSP();
+
     //dashboardProvider = Provider.of<DashboardProvider>(context, listen: false);
     _pubnubInstance = PubnubInstance(context);
     //_ticket = context.watch<TicketProvider>().ticketItem;
     _pubnubInstance?.setSubscriptionChannel(widget._channelId);
     messageProvider = MessageProvider(_pubnubInstance!, widget._channelId);
-    return Container(
-      margin: const EdgeInsets.only(top: 2),
-      child: Column(
-        children: [
-          Expanded(
-            child: Container(
-              color: containerColorUnFocused,
-              padding: const EdgeInsets.all(8.0),
-              child: ChangeNotifierProvider<MessageProvider>(
-                  create: (context) => messageProvider!,
-                  child: Consumer<MessageProvider>(
-                      builder: (context, value, child) {
-                    List<ChatMessage> list = [];
-                    //TODO set last read time token here..
-                    list.addAll(value.messages);
-                    _updateTimeToken();
-                    return _chatListView(list);
-                  })),
-            ),
-          ),
-          widget._ticket.status != "closed"
-              ? Container(
-                  color: containerColorUnFocused,
-                  padding: const EdgeInsets.all(16),
+    return FutureBuilder(
+        future: _getTicketDetailResponse(),
+        builder: (context, projectSnap) {
+          console("chatScreene => _statue: $_status");
+          return Container(
+            margin: const EdgeInsets.only(top: 2),
+            child: Column(
+              children: [
+                Expanded(
                   child: Container(
-                    padding: const EdgeInsets.fromLTRB(8, 0, 0, 0),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.all(
-                        Radius.circular(12.0),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            autocorrect: false,
-                            controller: _messageController,
-                            keyboardType: TextInputType.text,
-                            style: TextStyle(
-                                fontFamily: "Manrope",
-                                fontSize: 14,
-                                color: textColorLight,
-                                fontWeight: FontWeight.w500),
-                            decoration: InputDecoration(
-                              border: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              disabledBorder: InputBorder.none,
-                              errorBorder: InputBorder.none,
-                              hintStyle: TextStyle(
-                                  fontFamily: "Manrope",
-                                  fontSize: 14,
-                                  color: textColorLight,
-                                  fontWeight: FontWeight.w500),
-                              hintText: 'Write Your Message',
-                              fillColor: Colors.red,
-                              contentPadding: const EdgeInsets.all(18),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(
-                          width: 8,
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            _showPicker(context);
-                          },
-                          child: SvgPicture.asset(
-                            "assets/images/attachment.svg",
-                          ),
-                        ),
-                        const SizedBox(
-                          width: 12,
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            _sendMessage();
-                          },
-                          child: Container(
-                            color: visitStatusColor,
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                SvgPicture.asset(
-                                  "assets/images/rectangle.svg",
-                                  color: visitStatusColor,
-                                ),
-                                SvgPicture.asset(
-                                  "assets/images/ic-send.svg",
-                                  color: Colors.white,
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      ],
-                    ),
+                    color: containerColorUnFocused,
+                    padding: const EdgeInsets.all(8.0),
+                    child: ChangeNotifierProvider<MessageProvider>(
+                        create: (context) => messageProvider!,
+                        child: Consumer<MessageProvider>(
+                            builder: (context, value, child) {
+                          List<ChatMessage> list = [];
+                          list.addAll(value.messages);
+                          _updateTimeToken();
+                          return _chatListView(list);
+                        })),
                   ),
-                )
-              : Container()
-        ],
-      ),
-    );
+                ),
+                _status.toLowerCase() != "closed"
+                    ? Container(
+                        color: containerColorUnFocused,
+                        padding: const EdgeInsets.all(16),
+                        child: Container(
+                          padding: const EdgeInsets.fromLTRB(8, 0, 0, 0),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(12.0),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  autocorrect: false,
+                                  controller: _messageController,
+                                  keyboardType: TextInputType.text,
+                                  style: TextStyle(
+                                      fontFamily: "Manrope",
+                                      fontSize: 14,
+                                      color: textColorLight,
+                                      fontWeight: FontWeight.w500),
+                                  decoration: InputDecoration(
+                                    border: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    disabledBorder: InputBorder.none,
+                                    errorBorder: InputBorder.none,
+                                    hintStyle: TextStyle(
+                                        fontFamily: "Manrope",
+                                        fontSize: 14,
+                                        color: textColorLight,
+                                        fontWeight: FontWeight.w500),
+                                    hintText: 'Write Your Message',
+                                    fillColor: Colors.red,
+                                    contentPadding: const EdgeInsets.all(18),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(
+                                width: 8,
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  _showPicker(context);
+                                },
+                                child: SvgPicture.asset(
+                                  "assets/images/attachment.svg",
+                                ),
+                              ),
+                              const SizedBox(
+                                width: 12,
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  _sendMessage();
+                                },
+                                child: Container(
+                                  color: visitStatusColor,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      SvgPicture.asset(
+                                        "assets/images/rectangle.svg",
+                                        color: visitStatusColor,
+                                      ),
+                                      SvgPicture.asset(
+                                        "assets/images/ic-send.svg",
+                                        color: Colors.white,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            ],
+                          ),
+                        ),
+                      )
+                    : Container()
+              ],
+            ),
+          );
+        });
   }
 
   Widget _chatListView(List<ChatMessage> _messageList) {
@@ -201,13 +237,13 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _messageBody(ChatMessage message) {
-    return message.uuid == userValue?.chatUUID.toString()
+    return message.uuid == userValue.chatUUID.toString()
         ? _sender(message)
         : _receiver(message);
   }
 
   Widget _sender(ChatMessage message) {
-    var provider = context.read<TicketProvider>().ticketItem;
+    // var provider = context.read<TicketProvider>().ticketItem;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -220,7 +256,7 @@ class _ChatScreenState extends State<ChatScreen> {
               clipper: ChatBubbleClipper1(type: BubbleType.sendBubble),
               alignment: Alignment.topRight,
               elevation: 0,
-              backGroundColor: provider.status == "closed"
+              backGroundColor: _status.toLowerCase() == "closed"
                   ? chatBubbleSenderClosed
                   : chatBubbleSenderOpen,
               child: message.messageType == MessageType.normal
@@ -246,8 +282,8 @@ class _ChatScreenState extends State<ChatScreen> {
                             child: Center(
                               child: Hero(
                                 tag: setAuthOnFile(
-                                    userValue?.chatUUID.toString() ?? "",
-                                    userValue?.chatToken.toString() ?? "",
+                                    userValue.chatUUID.toString(),
+                                    userValue.chatToken.toString(),
                                     message.fileURL),
                                 transitionOnUserGestures: true,
                                 child: CachedNetworkImage(
@@ -256,8 +292,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                     child: CircularProgressIndicator.adaptive(),
                                   ),
                                   imageUrl: setAuthOnFile(
-                                      userValue?.chatUUID.toString() ?? "",
-                                      userValue?.chatToken.toString() ?? "",
+                                      userValue.chatUUID.toString(),
+                                      userValue.chatToken.toString(),
                                       message.fileURL),
                                 ),
                               ),
@@ -440,8 +476,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   width: 1,
                 ),
               ),
-              child: Column(
-                children: const [
+              child: const Column(
+                children: [
                   Icon(
                     Icons.insert_drive_file,
                     size: 32,
@@ -476,7 +512,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _noChat() {
     return messageProvider!.isChatLoading
-        ? const Center(child: CircularProgressIndicator.adaptive())
+        ?  Container(color: containerColorUnFocused,)
         : noMachineWidget(context, "No Chat found");
   }
 
@@ -493,7 +529,9 @@ class _ChatScreenState extends State<ChatScreen> {
       showLoaderDialog(context, "Please wait...");
       await messageProvider!
           .sendMessage(widget._channelId, _messageController.text.toString());
-      Navigator.pop(context);
+      if (context.mounted) {
+        Navigator.pop(context);
+      }
       _messageController.text = "";
     }
   }
@@ -547,7 +585,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (result != null) {
       File file = File(result.files.single.path!);
       if (getFileSize(file) > 100) {
-        context.showErrorSnackBar("Maximum file size limit 100 MB.");
+        if (context.mounted) {
+          context.showErrorSnackBar("Maximum file size limit 100 MB.");
+        }
         return;
       }
       String fileName = file.path.split('/').last;
@@ -562,24 +602,27 @@ class _ChatScreenState extends State<ChatScreen> {
     XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     File imageFile = File(image!.path);
     if (getFileSize(imageFile) > 100) {
-      context.showErrorSnackBar("Maximum file size limit 100 MB.");
+      if (context.mounted) {
+        context.showErrorSnackBar("Maximum file size limit 100 MB.");
+      }
       return;
     }
     String fileName = imageFile.path.split('/').last;
     List<int> imageBytes = imageFile.readAsBytesSync();
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ImagePreviewScreen(
-            image: imageBytes,
-            fileName: fileName,
-            file: imageFile,
-            messageProvider: messageProvider,
-            documentType: DocumentType.image,
-            channelId: widget._channelId,
-            fileSize: getFileSizeInBytes(imageFile).toString()),
-      ),
-    );
+    if (context.mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ImagePreviewScreen(
+              image: imageBytes,
+              fileName: fileName,
+              file: imageFile,
+              messageProvider: messageProvider,
+              documentType: DocumentType.image,
+              channelId: widget._channelId,
+              fileSize: getFileSizeInBytes(imageFile).toString()),
+        ),
+      );
+    }
     // _sendImage(imageBytes, fileName, getFileSizeInBytes(imageFile).toString());
   }
 
@@ -587,23 +630,27 @@ class _ChatScreenState extends State<ChatScreen> {
     XFile? image = await _picker.pickImage(source: ImageSource.camera);
     File imageFile = File(image!.path);
     if (getFileSize(imageFile) > 100) {
-      context.showErrorSnackBar("Maximum file size limit 100 MB.");
+      if (context.mounted) {
+        context.showErrorSnackBar("Maximum file size limit 100 MB.");
+      }
       return;
     }
     String fileName = imageFile.path.split('/').last;
     List<int> imageBytes = imageFile.readAsBytesSync();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ImagePreviewScreen(
-            image: imageBytes,
-            fileName: fileName,
-            file: imageFile,
-            documentType: DocumentType.image,
-            messageProvider: messageProvider,
-            channelId: widget._channelId,
-            fileSize: getFileSizeInBytes(imageFile).toString()),
-      ),
-    );
+    if (context.mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ImagePreviewScreen(
+              image: imageBytes,
+              fileName: fileName,
+              file: imageFile,
+              documentType: DocumentType.image,
+              messageProvider: messageProvider,
+              channelId: widget._channelId,
+              fileSize: getFileSizeInBytes(imageFile).toString()),
+        ),
+      );
+    }
     //_sendImage(imageBytes, fileName, getFileSizeInBytes(imageFile).toString());
   }
 
@@ -611,24 +658,27 @@ class _ChatScreenState extends State<ChatScreen> {
     XFile? image = await _picker.pickVideo(source: ImageSource.camera);
     File imageFile = File(image!.path);
     if (getFileSize(imageFile) > 100) {
-      context.showErrorSnackBar("Maximum video size limit 100 MB.");
+      if (context.mounted) {
+        context.showErrorSnackBar("Maximum video size limit 100 MB.");
+      }
       return;
     }
     String fileName = imageFile.path.split('/').last;
     List<int> imageBytes = imageFile.readAsBytesSync();
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ImagePreviewScreen(
-            image: imageBytes,
-            fileName: fileName,
-            file: imageFile,
-            messageProvider: messageProvider,
-            documentType: DocumentType.video,
-            channelId: widget._channelId,
-            fileSize: getFileSizeInBytes(imageFile).toString()),
-      ),
-    );
+    if (context.mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ImagePreviewScreen(
+              image: imageBytes,
+              fileName: fileName,
+              file: imageFile,
+              messageProvider: messageProvider,
+              documentType: DocumentType.video,
+              channelId: widget._channelId,
+              fileSize: getFileSizeInBytes(imageFile).toString()),
+        ),
+      );
+    }
     //_sendImage(imageBytes, fileName, getFileSizeInBytes(imageFile).toString());
   }
 

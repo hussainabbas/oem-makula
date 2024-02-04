@@ -42,6 +42,7 @@ class PubnubInstance {
           publishKey: publishKey,
         ));
     pubNub.setToken(chatToken);
+
   }
 
   Future<CountMessagesResult> getMessagesCount(

@@ -16,6 +16,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:signature/signature.dart';
 
+import '../../../../../../helper/model/signature_model.dart';
 import '../../../../../../main.dart';
 import '../provider/procedure_provider.dart';
 import 'package:http/http.dart' as http;
@@ -67,8 +68,18 @@ class _SignatureProcedureScreenState extends State<SignatureProcedureScreen> {
       if (response.statusCode == 200 && context.mounted) {
             console(
                 'PUT request successful! Response: ${response.statusCode}');
-            Provider.of<ProcedureProvider>(context, listen: false).signatureModel?[widget.index].signature = safeSigns3Response.sSafeSignS3?.url;
+            // Provider.of<ProcedureProvider>(context, listen: false).signatureModel?[widget.index].signature = safeSigns3Response.sSafeSignS3?.url;
             Navigator.pop(context);
+
+            var selectedSignatureModel = Provider.of<ProcedureProvider>(context, listen: false).signatureModel?[widget.index];
+            var model = SignatureRequestModel(
+                name: selectedSignatureModel?.name,
+                date: selectedSignatureModel?.date,
+                id: selectedSignatureModel?.id,
+                signature: safeSigns3Response.sSafeSignS3?.url);
+
+            Provider.of<ProcedureProvider>(context,
+                listen: false).updateSignature(model, widget.index);
       }
       else {
         console(response.reasonPhrase.toString());

@@ -11,4 +11,7 @@ abstract class LoginMobileDao {
 
   @delete
   Future<void> deleteLoginMobileOem(LoginMobile loginMobileOem);
+
+  @Query('DELETE FROM LoginMobile')
+  Future<void> deleteAllLoginMobileRecords();
 }

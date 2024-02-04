@@ -1,4 +1,12 @@
+import 'package:floor/floor.dart';
+
+import '../../database/type_converters/list_part_model_converter.dart';
+import '../../database/type_converters/single_part_model_converter.dart';
+
+@entity
 class GetInventoryPartListResponse {
+  @primaryKey
+  @TypeConverters([ListPartModelConverter])
   ListOwnOemInventoryPartModel? listOwnOemInventoryPart;
 
   GetInventoryPartListResponse({this.listOwnOemInventoryPart});
@@ -18,7 +26,10 @@ class GetInventoryPartListResponse {
   }
 }
 
+@entity
 class ListOwnOemInventoryPartModel {
+  @primaryKey
+  @TypeConverters([SinglePartModelConverter])
   List<PartsModel>? parts;
 
   ListOwnOemInventoryPartModel({this.parts});
@@ -41,7 +52,9 @@ class ListOwnOemInventoryPartModel {
   }
 }
 
+@entity
 class PartsModel {
+  @primaryKey
   String? sId;
   String? name;
   String? articleNumber;

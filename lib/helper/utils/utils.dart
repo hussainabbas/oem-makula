@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -12,6 +13,7 @@ import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/constants.dart';
 import 'package:makula_oem/main.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 extension Keyboard on BuildContext {
   void hideKeyboard() {
@@ -67,12 +69,12 @@ extension CustomDialog on BuildContext {
 
 void console(String message) {
   if (kDebugMode) {
-    log(message);
+    debugPrint(message);
   }
 }
 
 Color getContainerBgColor(String status) {
-  if (status == "closed") {
+  if (status == "Closed") {
     return closedContainerColor;
   } else {
     return visitContainerColor;
@@ -122,7 +124,7 @@ Future<Statuses?> getStatusById(String desiredStatusId) async {
   console(
       "getStatusById statusData => ${statusData?[0].listOwnOemOpenTickets?[0].oem?.statuses?.length}");
   Statuses? foundStatus =
-      statusData?[0].listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
+      statusData?[statusData.length - 1].listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
             (status) => status.sId == desiredStatusId,
           );
 
@@ -136,38 +138,60 @@ Future<Statuses?> getStatusByName(String desiredStatusName) async {
   //var statusData = StatusData.fromJson(await appPreferences.getData(AppPreferences.STATUES));
   var statusData =
       await appDatabase?.oemStatusDao.findAllGetOemStatusesResponses();
-  console(
-      "getStatusByName statusData => ${statusData?[0].listOwnOemOpenTickets?[0].oem?.statuses?.length}");
-  Statuses? foundStatus =
-      statusData?[0].listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
+  Statuses? foundStatus = statusData?[0].listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
             (status) => status.label == desiredStatusName,
           );
-
-  console("getStatusById => ${foundStatus?.label}");
-
   return foundStatus;
 }
 
-Color getStatusContainerColor(String status) {
-  String lowerCaseStatus = status.toLowerCase();
-  if (lowerCaseStatus == "open") {
-    return redContainerColor;
-  } else if (lowerCaseStatus == "on hold" || lowerCaseStatus == "hold") {
-    return onHoldContainerColor;
-  } else if (lowerCaseStatus == "visit planned" || lowerCaseStatus == "visit") {
-    return visitContainerColor;
-  } else if (lowerCaseStatus == "waiting input" ||
-      lowerCaseStatus == "waiting") {
-    return waitingContainerColor;
-  } else if (lowerCaseStatus == "closed") {
-    return closedContainerColor;
-  } else if (lowerCaseStatus == "callback scheduled" ||
-      lowerCaseStatus == "callback") {
-    return callbackContainerColor;
-  } else {
-    return redContainerColor;
-  }
+String getStatusColorById(String id, List<StatusData>? statuses) {
+  Statuses? foundStatus = statuses?[statuses.length - 1].listOwnOemOpenTickets?[0].oem?.statuses?.firstWhere(
+        (status) => status.sId == id,
+  );
+  return foundStatus?.color ?? "";
 }
+hexStringToColor(String hexColor) {
+  hexColor = hexColor.toUpperCase().replaceAll("#", "");
+  if (hexColor.length == 6) {
+    hexColor = "FF$hexColor";
+  }
+  if (hexColor.isEmpty) {
+    return redStatusColor;
+  }
+  return Color(int.parse(hexColor, radix: 16));
+}
+
+hexStringToColor2F(String hexColor) {
+  hexColor = hexColor.toUpperCase().replaceAll("#", "");
+  if (hexColor.length == 6) {
+    hexColor = "2F$hexColor";
+  }
+  if (hexColor.isEmpty) {
+    return redStatusColor;
+  }
+  return Color(int.parse(hexColor, radix: 16));
+}
+//
+// Color getStatusContainerColor(String status) {
+//   String lowerCaseStatus = status.toLowerCase();
+//   if (lowerCaseStatus == "open") {
+//     return redContainerColor;
+//   } else if (lowerCaseStatus == "on hold" || lowerCaseStatus == "hold") {
+//     return onHoldContainerColor;
+//   } else if (lowerCaseStatus == "visit planned" || lowerCaseStatus == "visit") {
+//     return visitContainerColor;
+//   } else if (lowerCaseStatus == "waiting input" ||
+//       lowerCaseStatus == "waiting") {
+//     return waitingContainerColor;
+//   } else if (lowerCaseStatus == "closed") {
+//     return closedContainerColor;
+//   } else if (lowerCaseStatus == "callback scheduled" ||
+//       lowerCaseStatus == "callback") {
+//     return callbackContainerColor;
+//   } else {
+//     return redContainerColor;
+//   }
+// }
 
 Color getStatusColor(String status) {
   ////print"status = $status");
@@ -404,6 +428,14 @@ Widget defaultImageBig(BuildContext context) {
       ));
 }
 
+Widget defaultImageBigInventory(BuildContext context) {
+  return Container(
+      decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8.0), color: visitContainerColor),
+      padding: const EdgeInsets.all(8),
+      child: SvgPicture.asset("assets/images/inventory.svg"));
+}
+
 Uint8List decodeBase64(String base64) {
   var image = base64
       .replaceAll("data:image/jpeg;base64,", "")
@@ -433,7 +465,6 @@ String getFileSizeInKBs(String size) {
   int bytes = int.parse(size);
   return "${(bytes / 1024).toStringAsFixed(2)}KB";
 }
-
 
 String convertStringDateToDDMMYYYY(String date) {
   final parsedDate = DateTime.parse(date);
@@ -512,3 +543,24 @@ launchURL(String url) async {
     throw 'Could not launch $url';
   }
 }
+
+newLaunchURL(String url) async {
+  if (await canLaunchUrlString(url)) {
+
+    await launchUrlString(url);
+  } else {
+    throw 'Could not launch $url';
+  }
+}
+
+String generateRandomString() {
+  const chars = "0123456789abcdef";
+  final random = Random();
+
+  String generateSegment(int length) {
+    return List.generate(length, (index) => chars[random.nextInt(chars.length)]).join();
+  }
+
+  return "${generateSegment(8)}-${generateSegment(4)}-${generateSegment(4)}-${generateSegment(4)}-${generateSegment(12)}";
+}
+

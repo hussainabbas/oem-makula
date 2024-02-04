@@ -106,9 +106,10 @@ class BottomSheetImageChooserModal {
                             .imageRequestModel;
                   }
                   Navigator.pop(context);
-                  if (index == totalLength) {
+                  if (index == (totalLength - 1)) {
                     Navigator.pop(context);
                   }
+                  formStateProvider.deleteImageFieldValue(file.path);
             }
             else {
               console(response.reasonPhrase.toString());
@@ -130,10 +131,12 @@ class BottomSheetImageChooserModal {
             var isConnected = await isConnectedToNetwork();
             if (isConnected) {
               var list = formStateProvider.selectedImageList ?? [];
+
               for (int index = 0; index < list.length; index++) {
+                console("uploadImagesToS3 => list: ${list.length} ---- $index");
                 var file = File(list[index]);
 
-                context.showCustomDialog();
+                if (context.mounted) context.showCustomDialog();
                 String fileName = basename(file.path);
                 console('Picked File Name: $fileName');
 
@@ -146,13 +149,13 @@ class BottomSheetImageChooserModal {
                 var result = await ProcedureViewModel().safeSignS3(fileName, "image/$fileExtension", true, type);
                 // var result = await ProcedureViewModel()
                 //     .safeSignS3(fileName, "image/$fileExtension", true, "");
-                Navigator.pop(context);
+                if (context.mounted) Navigator.pop(context);
                 result.join(
                     (failed) => {console("failed => ${failed.exception}")},
                     (loaded) => {
                           observerUploadImageS3(loaded.data, file, fieldName,
-                              fileExtension, index, list.length - 1),
-                          formStateProvider.deleteImageFieldValue(file.path)
+                              fileExtension, index, list.length),
+
                         },
                     (loading) => {
                           console("loading => "),

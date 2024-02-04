@@ -1,14 +1,20 @@
+import 'package:floor/floor.dart';
+
+import '../../database/type_converters/list_own_oem_support_account_converter.dart';
+
+@entity
 class GetListSupportAccountsResponse {
-  List<ListOwnOemSupportAccounts>? listOwnOemSupportAccounts;
+  @primaryKey
+  @TypeConverters([ListOwnOemSupportAccountsConverter])
+  List<ListSupportAccounts>? listOwnOemSupportAccounts;
 
   GetListSupportAccountsResponse({this.listOwnOemSupportAccounts});
 
   GetListSupportAccountsResponse.fromJson(Map<String, dynamic> json) {
     if (json['listOwnOemSupportAccounts'] != null) {
-      listOwnOemSupportAccounts = <ListOwnOemSupportAccounts>[];
+      listOwnOemSupportAccounts = <ListSupportAccounts>[];
       json['listOwnOemSupportAccounts'].forEach((v) {
-        listOwnOemSupportAccounts!
-            .add(new ListOwnOemSupportAccounts.fromJson(v));
+        listOwnOemSupportAccounts!.add(new ListSupportAccounts.fromJson(v));
       });
     }
   }
@@ -23,14 +29,16 @@ class GetListSupportAccountsResponse {
   }
 }
 
-class ListOwnOemSupportAccounts {
+@entity
+class ListSupportAccounts {
+  @primaryKey
   String? sId;
   String? name;
   String? username;
 
-  ListOwnOemSupportAccounts({this.sId, this.name, this.username});
+  ListSupportAccounts({this.sId, this.name, this.username});
 
-  ListOwnOemSupportAccounts.fromJson(Map<String, dynamic> json) {
+  ListSupportAccounts.fromJson(Map<String, dynamic> json) {
     sId = json['_id'];
     name = json['name'];
     username = json['username'];

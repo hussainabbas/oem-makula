@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' as RiverPod;
 import 'package:get/get.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:makula_oem/database/app_database.dart';
@@ -52,7 +53,9 @@ Future<void> main() async {
   HttpOverrides.global = MyHttpOverrides();
   ValueNotifier<GraphQLClient> client = GraphQLConfig().graphInit();
   var app = GraphQLProvider(client: client, child: const MyApp());
-  runApp(app);
+  runApp(const RiverPod.ProviderScope(
+    child:MyApp()
+  ));
 
   // Close the box when the application is shutting down
   // HiveResources.flush();

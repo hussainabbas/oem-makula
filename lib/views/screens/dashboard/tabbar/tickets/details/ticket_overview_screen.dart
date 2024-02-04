@@ -1,4 +1,4 @@
-import 'dart:convert';
+// ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
@@ -7,7 +7,6 @@ import 'package:get/get.dart';
 import 'package:makula_oem/helper/model/chat_message_model.dart';
 import 'package:makula_oem/helper/model/get_current_user_details_model.dart';
 import 'package:makula_oem/helper/model/get_own_oem_ticket_by_id_response.dart';
-import 'package:makula_oem/helper/model/get_procedure_by_id_response.dart';
 import 'package:makula_oem/helper/model/get_procedure_templates_response.dart';
 import 'package:makula_oem/helper/model/get_status_response.dart';
 import 'package:makula_oem/helper/model/get_ticket_detail_response.dart';
@@ -22,8 +21,9 @@ import 'package:makula_oem/helper/viewmodels/tickets_view_model.dart';
 import 'package:makula_oem/main.dart';
 import 'package:makula_oem/pubnub/message_provider.dart';
 import 'package:makula_oem/pubnub/pubnub_instance.dart';
+import 'package:makula_oem/views/modals/bottom_sheet_generic_modal.dart';
 import 'package:makula_oem/views/screens/dashboard/addNewTicket/viewmodel/add_ticket_view_model.dart';
-import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/details/procedure_screen.dart';
+import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/details/procedure_screen_with_hooks.dart';
 import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/details/procedure_viewmodel.dart';
 import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/provider/procedure_provider.dart';
 import 'package:makula_oem/views/screens/dashboard/tabbar/tickets/provider/ticket_provider.dart';
@@ -58,16 +58,16 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   MessageProvider? messageProvider;
   ListAssignee responseAssignee = ListAssignee();
   var _status = "";
-  late StatusData? oemStatus;
 
   bool isConnected = false;
+  List<StatusData>? oemStatus = [];
 
   //late TicketProvider _tickerProvider;
 
   _getOEMStatuesValueFromSP() async {
     isConnected = await isConnectedToNetwork();
-    var abc = await appDatabase?.oemStatusDao.findAllGetOemStatusesResponses();
-    oemStatus = abc?[0];
+    oemStatus =
+        await appDatabase?.oemStatusDao.findAllGetOemStatusesResponses();
   }
 
   @override
@@ -76,15 +76,33 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
     _getValuesFromSP();
     _getOEMStatuesValueFromSP();
 
-
     console("_ticket => ${widget._ticket.sId}");
-
     //_addTextListeners();
     super.initState();
   }
 
   void _getValuesFromSP() async {
     _currentUser = (await appDatabase?.userDao.getCurrentUserDetailsFromDb())!;
+
+    if (context.mounted) {
+      _pubnubInstance = PubnubInstance(context);
+      _pubnubInstance
+          ?.setSubscriptionChannel(_currentUser.notificationChannel ?? "");
+      messageProvider = MessageProvider(
+          _pubnubInstance!, _currentUser.notificationChannel ?? "");
+
+
+      // _pubnubInstance = PubnubInstance(context);
+      _pubnubInstance?.setSubscriptionChannel(
+          widget._ticket.ticketInternalNotesChatChannels?[0] ?? "");
+      messageProvider = MessageProvider(_pubnubInstance!,
+          widget._ticket.ticketInternalNotesChatChannels?[0] ?? "");
+
+      messageProvider = MessageProvider(_pubnubInstance!,
+          widget._ticket.ticketInternalNotesChatChannels?[0] ?? "");
+
+    }
+
 
     // _currentUser = HiveResources.currentUserBox!
     //     .get(OfflineResources.CURRENT_USER_RESPONSE)!;
@@ -95,23 +113,15 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   @override
   Widget build(BuildContext context) {
     //_ticket = context.watch<TicketProvider>().ticketItem;
-    _pubnubInstance = PubnubInstance(context);
-    _pubnubInstance?.setSubscriptionChannel(
-        widget._ticket.ticketInternalNotesChatChannels?[0] ?? "");
-    messageProvider = MessageProvider(_pubnubInstance!,
-        widget._ticket.ticketInternalNotesChatChannels?[0] ?? "");
+
+
     return FutureBuilder(
         future: _getTicketDetailResponse(),
         builder: (context, projectSnap) {
-          if (projectSnap.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator.adaptive(),
-            );
-          }
           if (projectSnap.hasError) {
             return const Center(child: Text(unexpectedError));
           } else {
-            return _ticketDetailData != null
+            return _ticketDetailData.sId != null
                 ? _ticketOverviewContent()
                 : Container();
           }
@@ -136,8 +146,10 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
 
       await getListOwnOemSupportAccounts();
     } else {
-      _ticketDetailData = (await appDatabase?.getTicketDetailResponseDao.getTicketDetailResponseById(widget._ticket.sId ?? ""))!;
-      console("_ticketDetailData procedures => ${_ticketDetailData.procedures?.length}");
+      _ticketDetailData = (await appDatabase?.getTicketDetailResponseDao
+          .getTicketDetailResponseById(widget._ticket.sId ?? ""))!;
+      console(
+          "_ticketDetailData procedures => ${_ticketDetailData.procedures?.length}");
       responseAssignee = (await appDatabase?.getListAssignee.findAssignee())!;
       _getStatusFromDb();
       // responseAssignee = HiveResources.listAssigneeBox!.get(OfflineResources.LIST_ASSIGNEE_RESPONSE)!;
@@ -201,8 +213,10 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                 console("loading => "),
               });
     } else {
-      _getProcedureTemplatesResponse = (await appDatabase?.procedureTemplates.getProcedureTemplates())!;
-      console("_getProcedureTemplatesResponse => ${_getProcedureTemplatesResponse?.listOwnOemProcedureTemplates?.length}");
+      _getProcedureTemplatesResponse =
+          (await appDatabase?.procedureTemplates.getProcedureTemplates())!;
+      console(
+          "_getProcedureTemplatesResponse => ${_getProcedureTemplatesResponse?.listOwnOemProcedureTemplates?.length}");
     }
   }
 
@@ -213,6 +227,31 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
     await appDatabase?.procedureTemplates.insertOrUpdate(response);
   }
 
+  observerDetachProcedure() {
+    setState(() {});
+  }
+
+  detachProcedure(String workOrderId, String procedureId) async {
+    var isConnected = await isConnectedToNetwork();
+    if (isConnected) {
+      if (context.mounted) {
+        context.showCustomDialog();
+      }
+      var result =
+          await ProcedureViewModel().detachProcedure(workOrderId, procedureId);
+      if (context.mounted) {
+        Navigator.pop(context);
+      }
+      result.join(
+          (failed) => {console("failed => ${failed.exception}")},
+          (loaded) => {
+                observerDetachProcedure(),
+              },
+          (loading) => {
+                console("loading => "),
+              });
+    }
+  }
 
   // _getProcedureById(String procedureId) async {
   //   var isConnected = await isConnectedToNetwork();
@@ -294,11 +333,33 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                       const SizedBox(
                         height: 28,
                       ),
-                      Html(
-                        data: generateHtmlString(
-                            _ticketDetailData.description ?? ""),
-                        // You can customize styling using various parameters in FlutterHtml
+
+                      Container(
+                        width: context.fullWidth(),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(width: 0.1)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const TextView(
+                                text: "Work Order Description",
+                                textColor: Colors.black,
+                                textFontWeight: FontWeight.bold,
+                                fontSize: 14),
+                            const SizedBox(
+                              height: 8,
+                            ),
+                            Html(
+                              data: generateHtmlString(
+                                  _ticketDetailData.description ?? ""),
+                              // You can customize styling using various parameters in FlutterHtml
+                            ),
+                          ],
+                        ),
                       ),
+
                       // ReadMoreText(
                       //   _ticketDetailData.description.toString() ?? "",
                       //   colorClickableText: primaryColor,
@@ -337,76 +398,196 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                             ],
                           ),
                           children: [
-                            if (_ticketDetailData.procedures?.isNotEmpty == true)
-                            ListView.builder(
-                              shrinkWrap: true,
-                              padding: EdgeInsets.zero,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: _ticketDetailData.procedures?.length,
-                              itemBuilder: (context, index) {
-                                var item = _ticketDetailData.procedures?[index];
-                                console("procedures => ${item?.procedure?.sId}");
-                                return ListTile(
-                                  onTap: () {
-                                    Provider.of<ProcedureProvider>(context, listen: false).clearFieldValues();
-                                    //_getProcedureById(item?.procedure?.sId ?? "");
+                            if (_ticketDetailData.procedures?.isNotEmpty ==
+                                true)
+                              ListView.builder(
+                                shrinkWrap: true,
+                                padding: EdgeInsets.zero,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: _ticketDetailData.procedures?.length,
+                                itemBuilder: (context, index) {
+                                  var item =
+                                      _ticketDetailData.procedures?[index];
+                                  console(
+                                      "procedures => ${item?.procedure?.sId}");
+                                  return ListTile(
+                                    onTap: () async {
+                                      Provider.of<ProcedureProvider>(context,
+                                          listen: false)
+                                          .clearFieldValues();
+                                      //_getProcedureById(item?.procedure?.sId ?? "");
+                                      final result =
+                                      await Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                            builder: (context) =>
+                                                ProcedureScreenWithHooks(
+                                                  pubnubInstance:
+                                                  _pubnubInstance,
+                                                  messageProvider:
+                                                  messageProvider,
+                                                  templatesId:
+                                                  item?.procedure?.sId ??
+                                                      "",
+                                                  ticketName:
+                                                  widget._ticket.title ??
+                                                      "",
+                                                )),
+                                      );
 
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                          builder: (context) =>
-                                              ProcedureScreen(
-                                                templatesId: item?.procedure?.sId ?? "",
-                                              )),
-
-                                    );
-                                  },
-                                  title: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      TextView(
-                                          text: item?.procedure?.name ?? "",
-                                          textColor: textColorLight,
-                                          textFontWeight: FontWeight.normal,
-                                          fontSize: 12),
-                                      Container(
-                                          decoration: BoxDecoration(
-                                              color: item?.procedure?.state !=
-                                                      "FINALIZED"
-                                                  ? lightGray
-                                                  : closedContainerColor,
-                                              borderRadius:
-                                                  BorderRadius.circular(8)),
-                                          alignment: Alignment.center,
-                                          padding: const EdgeInsets.fromLTRB(
-                                              8, 4, 4, 5),
+                                      console(
+                                          "TICKET-OVERVIEW -> REFRESH1: $result");
+                                      if (result == 'refresh') {
+                                        console("TICKET-OVERVIEW -> REFRESH");
+                                        setState(() {});
+                                      }
+                                    },
+                                    title: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
                                           child: TextView(
-                                              align: TextAlign.center,
-                                              text: item?.procedure?.state
-                                                      ?.replaceAll("_", " ") ??
-                                                  "",
-                                              textColor:
-                                                  item?.procedure?.state !=
-                                                          "FINALIZED"
-                                                      ? textColorLight
-                                                      : closedStatusColor,
+                                              text: item?.procedure?.name ?? "",
+                                              textColor: textColorLight,
                                               textFontWeight: FontWeight.normal,
-                                              fontSize: 12)),
-                                    ],
-                                  ),
-                                  trailing: const Icon(Icons.more_horiz),
-                                );
-                              },
-                            ),
+                                              fontSize: 12),
+                                        ),
+                                        Container(
+                                            decoration: BoxDecoration(
+                                                color: item?.procedure?.state !=
+                                                        "FINALIZED"
+                                                    ? lightGray
+                                                    : closedContainerColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(8)),
+                                            alignment: Alignment.center,
+                                            padding: const EdgeInsets.fromLTRB(8,
+                                                4, 4, 5),
+                                            child: TextView(
+                                                align: TextAlign.center,
+                                                text: item?.procedure?.state
+                                                        ?.replaceAll(
+                                                            "_", " ") ??
+                                                    "",
+                                                textColor:
+                                                    item?.procedure?.state !=
+                                                            "FINALIZED"
+                                                        ? textColorLight
+                                                        : closedStatusColor,
+                                                textFontWeight:
+                                                    FontWeight.normal,
+                                                fontSize: 12)),
+                                      ],
+                                    ),
+                                    trailing: IgnorePointer(
+                                      ignoring: _status == "Closed",
+                                      child: PopupMenuButton<String>(
+                                          color: Colors.white,
+                                          onSelected: (value) async {
+                                            if (value == "open") {
+                                              Provider.of<ProcedureProvider>(
+                                                      context,
+                                                      listen: false)
+                                                  .clearFieldValues();
+                                              //_getProcedureById(item?.procedure?.sId ?? "");
+                                              final result =
+                                                  await Navigator.of(context)
+                                                      .push(
+                                                MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        ProcedureScreenWithHooks(
+                                                          pubnubInstance:
+                                                              _pubnubInstance,
+                                                          messageProvider:
+                                                              messageProvider,
+                                                          templatesId: item
+                                                                  ?.procedure
+                                                                  ?.sId ??
+                                                              "",
+                                                          ticketName: widget
+                                                                  ._ticket
+                                                                  .title ??
+                                                              "",
+                                                        )),
+                                              );
+                                              console(
+                                                  "TICKET-OVERVIEW -> REFRESH1: $result");
+                                              if (result == 'refresh') {
+                                                console(
+                                                    "TICKET-OVERVIEW -> REFRESH");
+                                                setState(() {});
+                                              }
+                                              // Navigator.of(context).push(
+                                              //   MaterialPageRoute(
+                                              //       builder: (context) =>
+                                              //           ProcedureScreenWithHooks(
+                                              //             pubnubInstance:
+                                              //                 _pubnubInstance,
+                                              //             messageProvider:
+                                              //                 messageProvider,
+                                              //             templatesId: item
+                                              //                     ?.procedure
+                                              //                     ?.sId ??
+                                              //                 "",
+                                              //             ticketName: widget
+                                              //                     ._ticket
+                                              //                     .title ??
+                                              //                 "",
+                                              //           )),
+                                              // );
+                                            } else {
+                                              detachProcedure(
+                                                  widget._ticket.sId ?? "",
+                                                  item?.procedure?.sId ?? "");
+                                              console(
+                                                  "PopupMenuButton => ${widget._ticket.sId} ---- ${item?.procedure?.sId}");
+                                            }
+                                          },
+                                          itemBuilder: (BuildContext context) {
+                                            return [
+                                              const PopupMenuItem<String>(
+                                                value: 'open',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.edit_outlined),
+                                                    SizedBox(width: 8),
+                                                    Text('Open'),
+                                                  ],
+                                                ),
+                                              ),
+                                              PopupMenuItem<String>(
+                                                value: 'delete',
+                                                enabled:
+                                                    item?.procedure?.state !=
+                                                        "FINALIZED",
+                                                child: const Row(
+                                                  children: [
+                                                    Icon(Icons.delete),
+                                                    SizedBox(width: 8),
+                                                    Text('Delete'),
+                                                  ],
+                                                ),
+                                              ),
+                                            ];
+                                          },
+                                          child: const Icon(Icons.more_horiz)),
+                                    ),
+
+                                    // const Icon(Icons.more_horiz),
+                                  );
+                                },
+                              ),
                             GestureDetector(
                               onTap: () {
-                                SelectProcedureModal.show(
-                                    context,
-                                    _getProcedureTemplatesResponse,
-                                    widget._ticket.sId ?? "", () {
-                                      console("Callback");
-                                      setState(() {});
-                                });
+                                if (_status.toLowerCase() != "closed") {
+                                  SelectProcedureModal.show(
+                                      context,
+                                      _getProcedureTemplatesResponse,
+                                      widget._ticket.sId ?? "", () {
+                                    console("Callback");
+                                    setState(() {});
+                                  });
+                                }
                                 //Navigator.pushNamed(context, procedureScreenRoute);
                               },
                               child: Container(
@@ -416,7 +597,10 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                                   width: context.fullWidth(),
                                   child: TextView(
                                       text: "+ Add Procedure instance",
-                                      textColor: primaryColor,
+                                      textColor:
+                                          _status.toLowerCase() != "closed"
+                                              ? primaryColor
+                                              : Colors.grey,
                                       textFontWeight: FontWeight.bold,
                                       fontSize: 12)),
                             ),
@@ -451,84 +635,12 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
           child: line(context),
         ),
 
-        _status != "Closed" && isConnected
-            ? Container(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SvgPicture.asset(
-                          "assets/images/picture_circle.svg",
-                          width: 42,
-                          height: 42,
-                        ),
-                        Text(
-                          getInitials(_currentUser.name.toString())
-                              .toUpperCase(),
-                          style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                              color: primaryColor,
-                              fontFamily: 'Manrope'),
-                        )
-                      ],
-                    ),
-                    const SizedBox(
-                      width: 8,
-                    ),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: lightGray,
-                          borderRadius: const BorderRadius.all(
-                            Radius.circular(12.0),
-                          ),
-                        ),
-                        child: TextFormField(
-                          controller: _messageController,
-                          focusNode: _sendFieldFocus,
-                          autocorrect: false,
-                          keyboardType: TextInputType.text,
-                          style: const TextStyle(
-                              fontFamily: "Manrope",
-                              fontSize: 14,
-                              color: Colors.black,
-                              fontWeight: FontWeight.w500),
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            disabledBorder: InputBorder.none,
-                            errorBorder: InputBorder.none,
-                            hintStyle: TextStyle(
-                                fontFamily: "Manrope",
-                                fontSize: 14,
-                                color: textColorLight,
-                                fontWeight: FontWeight.w500),
-                            hintText: 'Add Internal note',
-                            fillColor: Colors.red,
-                            contentPadding:
-                                const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(
-                      width: 16,
-                    ),
-                    Visibility(
-                      child: GestureDetector(
-                          onTap: () {
-                            _sendInternalNotes();
-                          },
-                          child: SvgPicture.asset("assets/images/ic-send.svg")),
-                      //visible: Provider.of<TicketProvider>(context).isSendBtnVisible,
-                    ),
-                  ],
-                ),
-              )
+        _status.toLowerCase() != "closed" && isConnected
+            ? InternalNotesWidget(
+                messageController: _messageController,
+                sendFieldFocus: _sendFieldFocus,
+                currentUser: _currentUser,
+                sendInternalNotes: _sendInternalNotes)
             : Container()
         //_internalNotesFormPN()
       ],
@@ -558,14 +670,31 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
     return ChangeNotifierProvider<MessageProvider>(
       create: (context) => messageProvider!,
       child: Consumer<MessageProvider>(builder: (context, value, child) {
+        messageProvider?.addListener(() {
+          console("messageProvider?.addListene");
+        });
         return _internalNotesListView(value.messages);
       }),
     );
   }
 
   Widget _internalNotesListView(List<ChatMessage> _messageList) {
+
     List<ChatMessage> list = [];
-    list.addAll(_messageList.reversed);
+    _messageList.reversed?.forEach((element) {
+      console("message -> ${element.message["text"]} ---- ${messageProvider?.attachProcedureLoading}");
+      if (element.message["text"] != "attachOwnOemProcedureToWorkOrder" && element.message["text"] != "finalizeOwnOemProcedure" && element.message["text"] != "downloadProcedurePDF" && element.message["text"] != "saveOwnOemProcedureTemplate" ) {
+        list.add(element);
+      }
+    });
+
+
+    Future.delayed(const Duration(milliseconds: 100), (){
+      setState(() {
+        console("_ticket => messageProvider?.attachProcedureLoading - ${messageProvider?.attachProcedureLoading}");
+      });
+    });
+
     return _messageList.isNotEmpty ? _internalNotesWidget(list) : _noNotes();
   }
 
@@ -727,30 +856,51 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
             textColor: textColorLight,
           ),
           GestureDetector(
-            onTap: () {
-              if (_status != "Closed") {
+            onTap: () async {
+              if (_status.toLowerCase() != "closed") {
                 _closeSnackBars();
-                _showStatusModal(context, _ticketDetailData);
+                var oemStatus = await appDatabase?.oemStatusDao
+                    .findAllGetOemStatusesResponses();
+
+                BottomSheetGenericModal.show(
+                    context,
+                    "Select Status",
+                    oemStatus?[oemStatus.length - 1]
+                        .listOwnOemOpenTickets?[0]
+                        .oem
+                        ?.statuses,
+                    null,
+                    (p0) => p0?.label ?? "", (p0) {
+                  _ticketProvider.setTicketStatus(p0?.label ?? "");
+                  _getStatusByName(p0?.sId ?? "");
+                });
+                //_showStatusModal(context, _ticketDetailData);
               }
             },
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.all(Radius.circular(4)),
-                      color: getStatusContainerColor(_status)),
-                  child: Text(
-                    _status.toUpperCase(),
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontFamily: 'Manrope',
-                        color: getStatusColor(_status),
-                        fontSize: 14),
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                        borderRadius:
+                            const BorderRadius.all(Radius.circular(4)),
+                        color: hexStringToColor2F(getStatusColorById(
+                            _ticketDetailData.status ?? "", oemStatus))),
+                    child: Text(
+                      _status.toUpperCase(),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'Manrope',
+                          color: hexStringToColor(getStatusColorById(
+                              _ticketDetailData.status ?? "", oemStatus)),
+                          fontSize: 14),
+                    ),
                   ),
                 ),
-                const Expanded(child: SizedBox())
+                const Expanded(child: SizedBox()),
               ],
             ),
           ),
@@ -772,9 +922,9 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
           ),
           GestureDetector(
             onTap: () {
-              if (_status != "Closed") {
+              if (_status.toLowerCase() != "closed") {
                 _closeSnackBars();
-                _showAssigneeModal(context, _ticketDetailData);
+                _showAssigneeModal(context, _ticketDetailData, false);
               }
             },
             child: Row(
@@ -801,7 +951,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
                       const SizedBox(
                         width: 4,
                       ),
-                      _status != "Closed"
+                      _status.toLowerCase() != "closed"
                           ? SvgPicture.asset("assets/images/btn_down.svg")
                           : const SizedBox()
                     ],
@@ -827,16 +977,24 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
             textFontWeight: FontWeight.w700,
             textColor: textColorLight,
           ),
-          TextView(
-            text: _ticketDetailData!.user == null
-                ? notYetAssigned
-                : _ticketDetailData!.user!.name
-                    .toString()
-                    .toLowerCase()
-                    .capitalizeString(),
-            fontSize: 13,
-            textFontWeight: FontWeight.w500,
-            textColor: textColorDark,
+          GestureDetector(
+            onTap: () {
+              if (_status.toLowerCase() != "closed") {
+                // _closeSnackBars();
+                // _showAssigneeModal(context, _ticketDetailData, true);
+              }
+            },
+            child: TextView(
+              text: _ticketDetailData!.user == null
+                  ? notYetAssigned
+                  : _ticketDetailData!.user!.name
+                      .toString()
+                      .toLowerCase()
+                      .capitalizeString(),
+              fontSize: 13,
+              textFontWeight: FontWeight.w500,
+              textColor: textColorDark,
+            ),
           ),
         ]),
       ],
@@ -856,162 +1014,161 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
     }
   }
 
-  _getStatusByName(String status) async {
-    var statusData = await getStatusByName(status);
-    _updateTicketStatus(statusData?.sId ?? "");
+  _getStatusByName(String id) async {
+    _updateTicketStatus(id);
   }
 
-  void _showStatusModal(BuildContext context, GetOwnOemTicketById response) {
-    showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        builder: (BuildContext buildContext) {
-          return Container(
-            padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom),
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: <Widget>[
-                ListTile(
-                  onTap: () {
-                    Navigator.pop(context);
-                    _ticketProvider.setTicketStatus("open");
-                    _getStatusByName("Open");
-                  },
-                  title: Container(
-                    alignment: Alignment.center,
-                    child: Text(
-                      'Open',
-                      style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: textColorLight),
-                    ),
-                  ),
-                ),
-                line(context),
-                ListTile(
-                  onTap: () {
-                    Navigator.pop(context);
-                    _ticketProvider.setTicketStatus("Callback");
-                    _getStatusByName("Callback");
-                    //_updateTicketStatus(context, response);
-                  },
-                  title: Container(
-                    alignment: Alignment.center,
-                    child: Text(
-                      'Callback Scheduled',
-                      style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: textColorLight),
-                    ),
-                  ),
-                ),
-                line(context),
-                ListTile(
-                  onTap: () {
-                    Navigator.pop(context);
-                    _ticketProvider.setTicketStatus("Visit planned");
-                    _getStatusByName("Visit planned");
-                    //_updateTicketStatus(context, response);
-                  },
-                  title: Container(
-                    alignment: Alignment.center,
-                    child: Text(
-                      'Visit Planned',
-                      style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: textColorLight),
-                    ),
-                  ),
-                ),
-                line(context),
-                ListTile(
-                  onTap: () {
-                    Navigator.pop(context);
-                    _ticketProvider.setTicketStatus("On hold");
-                    _getStatusByName("On hold");
-                    //_updateTicketStatus(context, response);
-                  },
-                  title: Container(
-                    alignment: Alignment.center,
-                    child: Text(
-                      'On Hold',
-                      style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: textColorLight),
-                    ),
-                  ),
-                ),
-                line(context),
-                ListTile(
-                  onTap: () {
-                    Navigator.pop(context);
-                    _ticketProvider.setTicketStatus("Waiting input");
-                    _getStatusByName("Waiting input");
-                    //_updateTicketStatus(context, response);
-                  },
-                  title: Container(
-                    alignment: Alignment.center,
-                    child: Text(
-                      'Waiting Input',
-                      style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: textColorLight),
-                    ),
-                  ),
-                ),
-                line(context),
-                ListTile(
-                  onTap: () {
-                    Navigator.pop(context);
-                    _ticketProvider.setTicketStatus("Closed");
-                    _getStatusByName("Closed");
-                    //_updateTicketStatus(context, response);
-                  },
-                  title: Container(
-                    alignment: Alignment.center,
-                    child: Text(
-                      'Closed',
-                      style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: textColorLight),
-                    ),
-                  ),
-                ),
-                line(context),
-                ListTile(
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                  title: Container(
-                    alignment: Alignment.center,
-                    child: Text(
-                      'Cancel',
-                      style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: primaryColor),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        });
-  }
+  // void _showStatusModal(BuildContext context, GetOwnOemTicketById response) {
+  //   showModalBottomSheet(
+  //       context: context,
+  //       isScrollControlled: true,
+  //       builder: (BuildContext buildContext) {
+  //         return Container(
+  //           padding: EdgeInsets.only(
+  //               bottom: MediaQuery.of(context).viewInsets.bottom),
+  //           child: Wrap(
+  //             crossAxisAlignment: WrapCrossAlignment.center,
+  //             children: <Widget>[
+  //               ListTile(
+  //                 onTap: () {
+  //                   Navigator.pop(context);
+  //                   _ticketProvider.setTicketStatus("open");
+  //                   _getStatusByName("Open");
+  //                 },
+  //                 title: Container(
+  //                   alignment: Alignment.center,
+  //                   child: Text(
+  //                     'Open',
+  //                     style: TextStyle(
+  //                         fontFamily: 'Manrope',
+  //                         fontSize: 16,
+  //                         fontWeight: FontWeight.w500,
+  //                         color: textColorLight),
+  //                   ),
+  //                 ),
+  //               ),
+  //               line(context),
+  //               ListTile(
+  //                 onTap: () {
+  //                   Navigator.pop(context);
+  //                   _ticketProvider.setTicketStatus("Callback");
+  //                   _getStatusByName("Callback");
+  //                   //_updateTicketStatus(context, response);
+  //                 },
+  //                 title: Container(
+  //                   alignment: Alignment.center,
+  //                   child: Text(
+  //                     'Callback Scheduled',
+  //                     style: TextStyle(
+  //                         fontFamily: 'Manrope',
+  //                         fontSize: 16,
+  //                         fontWeight: FontWeight.w500,
+  //                         color: textColorLight),
+  //                   ),
+  //                 ),
+  //               ),
+  //               line(context),
+  //               ListTile(
+  //                 onTap: () {
+  //                   Navigator.pop(context);
+  //                   _ticketProvider.setTicketStatus("Visit planned");
+  //                   _getStatusByName("Visit planned");
+  //                   //_updateTicketStatus(context, response);
+  //                 },
+  //                 title: Container(
+  //                   alignment: Alignment.center,
+  //                   child: Text(
+  //                     'Visit Planned',
+  //                     style: TextStyle(
+  //                         fontFamily: 'Manrope',
+  //                         fontSize: 16,
+  //                         fontWeight: FontWeight.w500,
+  //                         color: textColorLight),
+  //                   ),
+  //                 ),
+  //               ),
+  //               line(context),
+  //               ListTile(
+  //                 onTap: () {
+  //                   Navigator.pop(context);
+  //                   _ticketProvider.setTicketStatus("On hold");
+  //                   _getStatusByName("On hold");
+  //                   //_updateTicketStatus(context, response);
+  //                 },
+  //                 title: Container(
+  //                   alignment: Alignment.center,
+  //                   child: Text(
+  //                     'On Hold',
+  //                     style: TextStyle(
+  //                         fontFamily: 'Manrope',
+  //                         fontSize: 16,
+  //                         fontWeight: FontWeight.w500,
+  //                         color: textColorLight),
+  //                   ),
+  //                 ),
+  //               ),
+  //               line(context),
+  //               ListTile(
+  //                 onTap: () {
+  //                   Navigator.pop(context);
+  //                   _ticketProvider.setTicketStatus("Waiting input");
+  //                   _getStatusByName("Waiting input");
+  //                   //_updateTicketStatus(context, response);
+  //                 },
+  //                 title: Container(
+  //                   alignment: Alignment.center,
+  //                   child: Text(
+  //                     'Waiting Input',
+  //                     style: TextStyle(
+  //                         fontFamily: 'Manrope',
+  //                         fontSize: 16,
+  //                         fontWeight: FontWeight.w500,
+  //                         color: textColorLight),
+  //                   ),
+  //                 ),
+  //               ),
+  //               line(context),
+  //               ListTile(
+  //                 onTap: () {
+  //                   Navigator.pop(context);
+  //                   _ticketProvider.setTicketStatus("Closed");
+  //                   _getStatusByName("Closed");
+  //                   //_updateTicketStatus(context, response);
+  //                 },
+  //                 title: Container(
+  //                   alignment: Alignment.center,
+  //                   child: Text(
+  //                     'Closed',
+  //                     style: TextStyle(
+  //                         fontFamily: 'Manrope',
+  //                         fontSize: 16,
+  //                         fontWeight: FontWeight.w500,
+  //                         color: textColorLight),
+  //                   ),
+  //                 ),
+  //               ),
+  //               line(context),
+  //               ListTile(
+  //                 onTap: () {
+  //                   Navigator.pop(context);
+  //                 },
+  //                 title: Container(
+  //                   alignment: Alignment.center,
+  //                   child: Text(
+  //                     'Cancel',
+  //                     style: TextStyle(
+  //                         fontFamily: 'Manrope',
+  //                         fontSize: 16,
+  //                         fontWeight: FontWeight.w500,
+  //                         color: primaryColor),
+  //                   ),
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //         );
+  //       });
+  // }
 
   _updateTicketStatus(String status) async {
     //context.showCustomDialog();
@@ -1021,7 +1178,7 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
     result.join(
         (failed) => {console("failed => ${failed.exception}")},
         (loaded) => {
-              context.showSuccessSnackBar("Ticket moved to $status tickets!"),
+              context.showSuccessSnackBar("Work order status updated successfully"),
               _getTicketDetailResponse(),
               setState(() {})
             },
@@ -1030,29 +1187,33 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
             });
   }
 
-  void _showAssigneeModal(context, GetOwnOemTicketById response) {
+  void _showAssigneeModal(
+      context, GetOwnOemTicketById response, bool isReporter) {
     showModalBottomSheet(
         context: context,
-        isScrollControlled: true,
         builder: (BuildContext buildContext) {
           return Container(
+            height: MediaQuery.of(context).size.height + 0.5,
             padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom),
-            child: Wrap(
+            child: Column(
               children: <Widget>[
-                ListView.separated(
-                  itemCount: responseAssignee.listOwnOemSupportAccounts!.length,
-                  shrinkWrap: true,
-                  padding: EdgeInsets.zero,
-                  itemBuilder: (context, i) {
-                    return _listFacility(
-                        i,
-                        context,
-                        responseAssignee.listOwnOemSupportAccounts![i],
-                        response);
-                  },
-                  separatorBuilder: (context, index) =>
-                      Divider(height: 1, color: textColorDark),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount:
+                        responseAssignee.listOwnOemSupportAccounts!.length,
+                    padding: EdgeInsets.zero,
+                    itemBuilder: (context, i) {
+                      return _listFacility(
+                          i,
+                          context,
+                          responseAssignee.listOwnOemSupportAccounts![i],
+                          response,
+                          isReporter);
+                    },
+                    separatorBuilder: (context, index) =>
+                        Divider(height: 1, color: textColorDark),
+                  ),
                 ),
                 line(context),
                 ListTile(
@@ -1078,11 +1239,11 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
   }
 
   Widget _listFacility(int i, context, ListOwnOemSupportAccounts assignee,
-      GetOwnOemTicketById response) {
+      GetOwnOemTicketById response, bool isReporter) {
     return ListTile(
       onTap: () {
         Navigator.pop(context);
-        _updateTicketAssignee(assignee.sId.toString());
+        _updateTicketAssignee(assignee.sId.toString(), isReporter);
       },
       title: Container(
         padding: const EdgeInsets.all(16),
@@ -1100,28 +1261,147 @@ class _TicketOverviewScreenState extends State<TicketOverviewScreen> {
     );
   }
 
-  _updateTicketAssignee(String assigneeId) async {
+  _updateTicketAssignee(String assigneeId, bool isReporter) async {
     context.showCustomDialog();
-    var result = await TicketViewModel().updateTicketAssignee(
-        _ticketDetailData.sId.toString() ?? "", assigneeId);
-    Navigator.pop(context);
-    result.join(
-        (failed) => {console("failed => ${failed.exception}")},
-        (loaded) => {
-              context.showSuccessSnackBar("Ticket assigned successfully"),
-              setState(() {})
-            },
-        (loading) => {
-              console("loading => "),
-            });
+    // var result = await TicketViewModel().updateTicketAssignee(
+    //     _ticketDetailData.sId.toString() ?? "", assigneeId);
+    // Navigator.pop(context);
+    // result.join(
+    //     (failed) => {console("failed => ${failed.exception}")},
+    //     (loaded) => {
+    //           context.showSuccessSnackBar("Ticket assigned successfully"),
+    //           setState(() {})
+    //         },
+    //     (loading) => {
+    //           console("loading => "),
+    //         });
+
+    if (isReporter) {
+      var result = await TicketViewModel().updateTicketReporter(
+          _ticketDetailData.sId.toString() ?? "", assigneeId);
+      Navigator.pop(context);
+      result.join(
+          (failed) => {console("failed => ${failed.exception}")},
+          (loaded) => {
+                context.showSuccessSnackBar("Work order assigned successfully"),
+                setState(() {})
+              },
+          (loading) => {
+                console("loading => "),
+              });
+    } else {
+      var result = await TicketViewModel().updateTicketAssignee(
+          _ticketDetailData.sId.toString() ?? "", assigneeId);
+      Navigator.pop(context);
+      result.join(
+          (failed) => {console("failed => ${failed.exception}")},
+          (loaded) => {
+                context.showSuccessSnackBar("Work order assigned successfully"),
+                setState(() {})
+              },
+          (loading) => {
+                console("loading => "),
+              });
+    }
   }
-
-
 
   @override
   void dispose() {
     _messageController.dispose();
     _sendFieldFocus.dispose();
     super.dispose();
+  }
+}
+
+class InternalNotesWidget extends StatelessWidget {
+  const InternalNotesWidget(
+      {super.key,
+      required this.messageController,
+      required this.sendFieldFocus,
+      required this.currentUser,
+      required this.sendInternalNotes});
+
+  final TextEditingController messageController;
+  final FocusNode sendFieldFocus;
+  final CurrentUser currentUser;
+  final VoidCallback sendInternalNotes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              SvgPicture.asset(
+                "assets/images/picture_circle.svg",
+                width: 42,
+                height: 42,
+              ),
+              Text(
+                getInitials(currentUser.name.toString()).toUpperCase(),
+                style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: primaryColor,
+                    fontFamily: 'Manrope'),
+              )
+            ],
+          ),
+          const SizedBox(
+            width: 8,
+          ),
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: lightGray,
+                borderRadius: const BorderRadius.all(
+                  Radius.circular(12.0),
+                ),
+              ),
+              child: TextFormField(
+                controller: messageController,
+                focusNode: sendFieldFocus,
+                autocorrect: false,
+                keyboardType: TextInputType.text,
+                style: const TextStyle(
+                    fontFamily: "Manrope",
+                    fontSize: 14,
+                    color: Colors.black,
+                    fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  hintStyle: TextStyle(
+                      fontFamily: "Manrope",
+                      fontSize: 14,
+                      color: textColorLight,
+                      fontWeight: FontWeight.w500),
+                  hintText: 'Add Internal note',
+                  fillColor: Colors.red,
+                  contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(
+            width: 16,
+          ),
+          Visibility(
+            child: GestureDetector(
+                onTap: () {
+                  sendInternalNotes();
+                },
+                child: SvgPicture.asset("assets/images/ic-send.svg")),
+            //visible: Provider.of<TicketProvider>(context).isSendBtnVisible,
+          ),
+        ],
+      ),
+    );
   }
 }

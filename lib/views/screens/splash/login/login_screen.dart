@@ -318,7 +318,7 @@ _saveOEMStatues(StatusData response) async {
   console("_saveOEMStatues => ${response.listOwnOemOpenTickets?.length}");
   // HiveResources.oemStatusBox?.put(OfflineResources.OEM_STATUS_RESPONSE, response);
   //await appPreferences.setData(AppPreferences.STATUES, response);
-  appDatabase?.oemStatusDao.insertGetOemStatusesResponse(response);
+  await appDatabase?.oemStatusDao.insertGetOemStatusesResponse(response);
   if (_context.mounted) {
     Navigator.of(_context).pushNamedAndRemoveUntil(
         dashboardScreenRoute, (Route<dynamic> route) => false);

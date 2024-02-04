@@ -8,4 +8,10 @@ abstract class GetOemStatusesResponseDao {
 
   @Insert(onConflict: OnConflictStrategy.replace)
   Future<void> insertGetOemStatusesResponse(StatusData entity);
+
+  @Update(onConflict: OnConflictStrategy.replace)
+  Future<void> updateGetOemStatusesResponse(StatusData entity);
+
+  @Query('DELETE FROM StatusData')
+  Future<void> deleteAllRecords();
 }

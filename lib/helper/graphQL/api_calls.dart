@@ -146,6 +146,10 @@ String listOwnOemUserOpenTickets = r"""
                   _id
                   name
                 }
+                user {
+                  _id
+                  name
+                }
             }    
           }
    """;
@@ -240,6 +244,10 @@ String getOwnOemTicketById = """
                   }
                }
                 assignee {
+                  _id
+                  name 
+                } 
+                user {
                   _id
                   name 
                 } 
@@ -415,7 +423,7 @@ const String signS3Download = '''
 //    """;
 String listAllOwnOemCustomers = r"""
           query ListAllOwnOemCustomers {
-    listAllOwnOemCustomers(params: { limit: 100 }) {
+    listAllOwnOemCustomers(params: { limit: 10000 }) {
         totalCount
         limit
         skip
@@ -456,7 +464,7 @@ String listAllOwnOemCustomers = r"""
 
 String listOwnCustomerMachines2 = r"""
           query ListOwnCustomerMachines {
-    listOwnCustomerMachines(params: { limit: 100 }) {
+    listOwnCustomerMachines(params: { limit: 10000 }) {
         machines {
             _id
             name
@@ -576,7 +584,7 @@ String deleteOwnOemSubmissionById = '''
 
 String listOwnOemProcedureTemplates = '''
              query ListOwnOemProcedureTemplates {
-    listOwnOemProcedureTemplates(params: { limit: 100 }) {
+    listOwnOemProcedureTemplates(params: { limit: 10000 }) {
         _id
         name
         description
@@ -745,7 +753,7 @@ String ATTACH_PROCEDURE_TO_WORK_ORDER = '''
 
 String LIST_OWN_OEM_INVENTORY_PART = r"""
           query ListOwnOemInventoryPart {
-              listOwnOemInventoryPart(params: { limit: 100 }) {
+              listOwnOemInventoryPart(params: { limit: 10000 }) {
                   parts {
                       _id
                       name
@@ -795,4 +803,19 @@ String SAVE_AS_DRAFT_OEM_PROCEDURE = '''
                     updatedAt
                 }
               }
+          ''';
+
+String DETACH_PROCEDURE = ''' 
+            mutation DetachOwnOemProcedureFromWorkOrder(\$input: InputDetachProcedureFromWorkOrder!) {
+                detachOwnOemProcedureFromWorkOrder(input: \$input){
+                    _id 
+                }
+              } 
+          ''';
+
+String DOWNLOAD_PROCEDURE_PDF = ''' 
+            query DownloadProcedurePDF(\$id: ID!, \$uuid: String!) {
+                downloadProcedurePDF(id: \$id, uuid: \$uuid)
+            }
+ 
           ''';

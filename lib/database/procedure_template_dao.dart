@@ -14,4 +14,7 @@ abstract class ProcedureTemplatesDao {
   @Insert()
   Future<void> insertOrUpdate(GetProcedureTemplatesResponse response);
 
+  @Query('DELETE FROM GetProcedureTemplatesResponse')
+  Future<void> deleteAllRecords();
+
 }

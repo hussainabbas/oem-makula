@@ -8,4 +8,7 @@ abstract class ListAssigneeDao {
 
   @Insert(onConflict: OnConflictStrategy.replace)
   Future<void> insertListAssignee(ListAssignee listAssignee);
+
+  @Query('DELETE FROM ListAssignee')
+  Future<void> deleteAllRecords();
 }

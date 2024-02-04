@@ -1,10 +1,9 @@
-
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:makula_oem/helper/utils/colors.dart';
 import 'package:makula_oem/helper/utils/routes.dart';
 import 'package:makula_oem/helper/utils/utils.dart';
+import 'package:makula_oem/main.dart';
 import 'package:makula_oem/views/widgets/makula_text_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,6 +16,7 @@ class CustomAppBar extends StatelessWidget {
 
   final String _toolBarTitle;
   final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
+
   @override
   Widget build(BuildContext context) {
     return SliverAppBar(
@@ -33,8 +33,8 @@ class CustomAppBar extends StatelessWidget {
       pinned: true,
       floating: false,
       automaticallyImplyLeading: false,
-      expandedHeight: 130,
-      toolbarHeight: 70,
+      expandedHeight: 140,
+      toolbarHeight: 90,
     );
   }
 
@@ -45,8 +45,8 @@ class CustomAppBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          TextView(
-              text: _toolBarTitle,
+          const TextView(
+              text: "Work Orders",
               textColor: Colors.white,
               textFontWeight: FontWeight.w700,
               fontSize: 32),
@@ -71,10 +71,7 @@ class CustomAppBar extends StatelessWidget {
         builder: (BuildContext buildContext) {
           return Container(
             padding: EdgeInsets.only(
-                bottom: MediaQuery
-                    .of(context)
-                    .viewInsets
-                    .bottom),
+                bottom: MediaQuery.of(context).viewInsets.bottom),
             child: Wrap(
               children: <Widget>[
                 ListTile(
@@ -118,6 +115,18 @@ class CustomAppBar extends StatelessWidget {
   }
 
   void _logout(BuildContext context) async {
+    final database = appDatabase;
+    await database?.loginMobileDao.deleteAllLoginMobileRecords();
+    await database?.userDao.deleteAllRecords();
+    await database?.oemStatusDao.deleteAllRecords();
+    await database?.userOpenTicketListDao.deleteAllRecords();
+    await database?.userCloseTicketListDao.deleteAllRecords();
+    await database?.listOpenTicketsDao.deleteAllRecords();
+    await database?.listCloseTicketsDao.deleteAllRecords();
+    await database?.getTicketDetailResponseDao.deleteAllRecords();
+    await database?.getListAssignee.deleteAllRecords();
+    await database?.procedureTemplates.deleteAllRecords();
+    await database?.getProcedureByIdResponseDao.deleteAllRecords();
     final SharedPreferences prefs = await _prefs;
     prefs.clear();
     Navigator.of(context).pushNamedAndRemoveUntil(

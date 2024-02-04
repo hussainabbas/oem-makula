@@ -119,10 +119,14 @@ class _OpenTicketsScreenState extends State<OpenTicketsScreen> {
                       physics: const NeverScrollableScrollPhysics(),
                       shrinkWrap: true,
                       itemBuilder: (context, i) {
-                        return TicketWidget(
-                          item: listOpenTickets.openTicket![i],
-                          statusData: oemStatus,
-                        );
+                        console("element = ${listOpenTickets.openTicket![i].status}");
+                        if (listOpenTickets.openTicket![i].status != "64db34abb7a453ddccde9965") {
+                          return TicketWidget(
+                            item: listOpenTickets.openTicket![i],
+                            statusData: oemStatus,
+                          );
+                        }
+                        return const SizedBox();
                       })
                   : noTicketWidget(context, noOpenTicketLabel)
             ],
@@ -168,7 +172,10 @@ class _OpenTicketsScreenState extends State<OpenTicketsScreen> {
       var memberShipResult = await widget._pubnub.getMemberships();
       List<MembershipMetadata> foundListFromPN = [];
       for (var item in tickets.openTicket!) {
-        if (item.status != "closed") {
+        var status = await getStatusById(item.status ?? "");
+        var statusLabel = status?.label?.toLowerCase();
+        console("statusLabel => ${statusLabel}");
+        if (statusLabel != "closed") {
           foundListFromPN.addAll(memberShipResult.metadataList!
               .where((element) =>
               element.channel.id
@@ -224,7 +231,9 @@ class _OpenTicketsScreenState extends State<OpenTicketsScreen> {
         }
       }
       for (var element in tickets.openTicket!) {
-        if (element.status != "closed") {
+        var status = await getStatusById(element.status ?? "");
+        var statusLabel = status?.label?.toLowerCase();
+        if (statusLabel != "closed")  {
           if (element.channelsWithCount > 0) {
             unreadList.add(element);
           } else {

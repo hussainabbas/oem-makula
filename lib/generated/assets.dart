@@ -11,6 +11,7 @@ class Assets {
   static const String databaseCurrentUserDao = 'lib/database/current_user_dao.dart';
   static const String databaseGetOemStatusesResponseDao = 'lib/database/get_oem_statuses_response_dao.dart';
   static const String databaseGetProcedureTemplatesResponseDao = 'lib/database/get_procedure_templates_response_dao.dart';
+  static const String databaseGetSupportAccountDao = 'lib/database/get_support_account_dao.dart';
   static const String databaseGetTicketDetailsResponseDao = 'lib/database/get_ticket_details_response_dao.dart';
   static const String databaseListCloseTicketsDao = 'lib/database/list_close_tickets_dao.dart';
   static const String databaseListOpenTicketsDao = 'lib/database/list_open_tickets_dao.dart';
@@ -19,6 +20,7 @@ class Assets {
   static const String databaseListUserOpenTicketsDao = 'lib/database/list_user_open_tickets_dao.dart';
   static const String databaseLoginMobileDao = 'lib/database/login_mobile_dao.dart';
   static const String databaseOemStatusModelDao = 'lib/database/oem_status_model_dao.dart';
+  static const String databasePartModelDao = 'lib/database/part_model_dao.dart';
   static const String databaseProcedureTemplateDao = 'lib/database/procedure_template_dao.dart';
   static const String databaseStatusesModelDao = 'lib/database/statuses_model_dao.dart';
   static const String detailsBottomSheetImageChooserDialog = 'lib/views/screens/dashboard/tabbar/tickets/details/bottom_sheet_image_chooser_dialog.dart';
@@ -30,7 +32,9 @@ class Assets {
   static const String detailsMachineDocumentationTabScreen = 'lib/views/screens/dashboard/tabbar/machines/details/machine_documentation_tab_screen.dart';
   static const String detailsMachineHistoryTabScreen = 'lib/views/screens/dashboard/tabbar/machines/details/machine_history_tab_screen.dart';
   static const String detailsProcedureScreen = 'lib/views/screens/dashboard/tabbar/tickets/details/procedure_screen.dart';
+  static const String detailsProcedureScreenWithHooks = 'lib/views/screens/dashboard/tabbar/tickets/details/procedure_screen_with_hooks.dart';
   static const String detailsProcedureViewmodel = 'lib/views/screens/dashboard/tabbar/tickets/details/procedure_viewmodel.dart';
+  static const String detailsSignatureHooksProcedureScreen = 'lib/views/screens/dashboard/tabbar/tickets/details/signature_hooks_procedure_screen.dart';
   static const String detailsSignatureProcedureScreen = 'lib/views/screens/dashboard/tabbar/tickets/details/signature_procedure_screen.dart';
   static const String detailsTicketDetailScreen = 'lib/views/screens/dashboard/tabbar/tickets/details/ticket_detail_screen.dart';
   static const String detailsTicketOverviewScreen = 'lib/views/screens/dashboard/tabbar/tickets/details/ticket_overview_screen.dart';
@@ -78,6 +82,7 @@ class Assets {
   static const String imagesIcSmallLine = 'assets/images/ic_small_line.svg';
   static const String imagesIconButton = 'assets/images/icon_button.svg';
   static const String imagesImage = 'assets/images/image.png';
+  static const String imagesInventory = 'assets/images/inventory.svg';
   static const String imagesLanguage = 'assets/images/language.svg';
   static const String imagesLine = 'assets/images/line.svg';
   static const String imagesMachine = 'assets/images/machine.png';
@@ -102,9 +107,12 @@ class Assets {
   static const String imagesTotalTickets = 'assets/images/total_tickets.svg';
   static const String imagesUploadFile = 'assets/images/upload-file.svg';
   static const String libMain = 'lib/main.dart';
+  static const String libProviders = 'lib/providers.dart';
   static const String loginLoginProvider = 'lib/views/screens/splash/login/login_provider.dart';
   static const String loginLoginScreen = 'lib/views/screens/splash/login/login_screen.dart';
   static const String machinesMachinesScreen = 'lib/views/screens/dashboard/tabbar/machines/machines_screen.dart';
+  static const String modalsBottomSheetGenericModal = 'lib/views/modals/bottom_sheet_generic_modal.dart';
+  static const String modalsBottomSheetImageChooserDialogHook = 'lib/views/modals/bottom_sheet_image_chooser_dialog_hook.dart';
   static const String modalsSelectAProcedureModal = 'lib/views/screens/modals/select_a_procedure_modal.dart';
   static const String modelAddNewTicketResponse = 'lib/helper/model/add_new_ticket_response.dart';
   static const String modelAttachProcedureToWorkOrderResponse = 'lib/helper/model/attach_procedure_to_work_order_response.dart';
@@ -115,6 +123,7 @@ class Assets {
   static const String modelCustomers = 'lib/helper/model/customers.dart';
   static const String modelDataTreeFacilityMobile = 'lib/helper/model/data_tree_facility_mobile.dart';
   static const String modelDeleteDocumentResponse = 'lib/helper/model/delete_document_response.dart';
+  static const String modelDetachProcedureResponse = 'lib/helper/model/detach_procedure_response.dart';
   static const String modelDocumentsDetailModel = 'lib/helper/model/documents_detail_model.dart';
   static const String modelDocumentsModel = 'lib/helper/model/documents_model.dart';
   static const String modelDocumentsTreeModel = 'lib/helper/model/documents_tree_model.dart';
@@ -180,17 +189,20 @@ class Assets {
   static const String typeConvertersListColumnsModalConverter = 'lib/database/type_converters/list_columns_modal_converter.dart';
   static const String typeConvertersListOptionsModalConverter = 'lib/database/type_converters/list_options_modal_converter.dart';
   static const String typeConvertersListOwnOemOpenTicketsModelConverter = 'lib/database/type_converters/list_own_oem_open_tickets_model_converter.dart';
-  static const String typeConvertersListOwnOemSupportAccountsConverter = 'lib/database/type_converters/list_own_oem_support_accounts_converter.dart';
+  static const String typeConvertersListOwnOemSupportAccountConverter = 'lib/database/type_converters/list_own_oem_support_account_converter.dart';
   static const String typeConvertersListOwnProcedureTemplatesModelConverter = 'lib/database/type_converters/list_own_procedure_templates_model_converter.dart';
+  static const String typeConvertersListPartModelConverter = 'lib/database/type_converters/list_part_model_converter.dart';
   static const String typeConvertersListProceduresConverter = 'lib/database/type_converters/list_procedures_converter.dart';
   static const String typeConvertersListSignatureModalConverter = 'lib/database/type_converters/list_signature_modal_converter.dart';
   static const String typeConvertersListStringConverter = 'lib/database/type_converters/list_string_converter.dart';
+  static const String typeConvertersListSupportAccountConverter = 'lib/database/type_converters/list_support_account_converter.dart';
   static const String typeConvertersMachineInformationConverter = 'lib/database/type_converters/machine_information_converter.dart';
   static const String typeConvertersOemConverter = 'lib/database/type_converters/oem_converter.dart';
   static const String typeConvertersOemStatusModelConverter = 'lib/database/type_converters/oem_status_model_converter.dart';
   static const String typeConvertersOpenTicketConverter = 'lib/database/type_converters/open_ticket_converter.dart';
   static const String typeConvertersProcedureConverter = 'lib/database/type_converters/procedure_converter.dart';
   static const String typeConvertersProcedureTemplateConverter = 'lib/database/type_converters/procedure_template_converter.dart';
+  static const String typeConvertersSinglePartModelConverter = 'lib/database/type_converters/single_part_model_converter.dart';
   static const String typeConvertersStatusesModelConverter = 'lib/database/type_converters/statuses_model_converter.dart';
   static const String typeConvertersTableOptionModelConverter = 'lib/database/type_converters/table_option_model_converter.dart';
   static const String utilsAppPreferences = 'lib/helper/utils/app_preferences.dart';
